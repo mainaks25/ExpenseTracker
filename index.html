@@ -1629,40 +1629,301 @@
         avgMonthly = totalMonths > 0 ? totalExpenses / totalMonths : totalExpenses;
       }
 
+      const activeUsersCount = Math.max(cachedUsers.filter(u => u.role !== 'admin').length, 2);
+
       $('#dashFirstDateLabel').text('Total Expenses since ' + firstRecordDate);
-      $('#dashTotalExpenses').text('₹' + parseFloat(totalExpenses).toLocaleString('en-IN', {minimumFractionDigits: 2}));
-      $('#dashMonthlyExpenses').text('₹' + parseFloat(monthlyExpenses).toLocaleString('en-IN', {minimumFractionDigits: 2}));
-      $('#dashAvgMonthly').text('₹' + parseFloat(avgMonthly).toLocaleString('en-IN', {minimumFractionDigits: 2}));
+      $('#dashTotalExpenses').text('₹' + parseFloat(totalExpenses).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2}));
+      $('#dashMonthlyExpenses').text('₹' + parseFloat(monthlyExpenses).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2}));
+      $('#dashAvgMonthly').text('₹' + parseFloat(avgMonthly).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2}));
+      $('#dashActiveUsers').text(activeUsersCount);
 
-      let rHtml = '';
-      allExpenses.slice(0, 5).forEach(e => {
-        rHtml += `
-          <tr>
-            <td class="py-3 pr-2 font-medium text-gray-900">${escapeHtml(e.title)}</td>
-            <td class="py-3 px-2 text-gray-500">${formatDisplayDate(e.expense_date)}</td>
-            <td class="py-3 px-2 text-indigo-600 font-semibold font-mono">₹${parseFloat(e.amount).toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
-            <td class="py-3 pl-2 text-right text-gray-400 text-xs">${e.creator_name}</td>
-          </tr>
-        `;
-      });
-      $('#dashRecentTable').html(rHtml);
+      // Recent 5 expenses list
+      let recentHtml = '';
+      const recentExpenses = allExpenses.slice(0, 5);
+      if (recentExpenses.length === 0) {
+        recentHtml = '<li class="py-4 text-center text-sm text-gray-500">No recent expenses</li>';
+      } else {
+        recentExpenses.forEach(e => {
+          recentHtml += `
+            <li class="py-4">
+              <div class="flex items-center space-x-4 min-w-0">
+                <div class="flex-shrink-0">
+                  <span class="inline-flex items-center justify-center h-8 w-8 rounded-full bg-indigo-100 text-indigo-600">
+                    <i class="fas fa-receipt"></i>
+                  </span>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium text-gray-900 truncate">${escapeHtml(e.title)}</p>
+                  <p class="text-sm text-gray-500 truncate">${escapeHtml(e.type)} • ${formatDisplayDate(e.expense_date)}</p>
+                </div>
+                <div class="flex-shrink-0">
+                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 whitespace-nowrap font-mono">
+                    ₹${parseFloat(e.amount).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                  </span>
+                </div>
+              </div>
+            </li>
+          `;
+        });
+      }
+      $('#dashRecentList').html(recentHtml);
 
+      // Category breakdown table & doughnut chart
       const categoryData = Object.keys(catTotals).map(k => ({ type: k, total: catTotals[k] })).sort((a, b) => b.total - a.total);
-      if (dashCatChart) dashCatChart.destroy();
-      const ctx = document.getElementById('dashCategoryChart').getContext('2d');
-      dashCatChart = new Chart(ctx, {
-        type: 'doughnut',
+      const totalCatSum = categoryData.reduce((s, c) => s + c.total, 0);
+
+      let catTableHtml = '';
+      if (categoryData.length === 0) {
+        catTableHtml = '<tr><td colspan="3" class="px-3 py-4 text-center text-sm text-gray-500">No data</td></tr>';
+      } else {
+        categoryData.forEach(item => {
+          const percentage = totalCatSum > 0 ? ((item.total / totalCatSum) * 100).toFixed(1) : 0;
+          catTableHtml += `
+            <tr>
+              <td class="px-3 py-4 text-sm text-gray-900 font-medium">${escapeHtml(item.type)}</td>
+              <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-right font-mono">₹${parseFloat(item.total).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+              <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-right font-medium">${percentage}%</td>
+            </tr>
+          `;
+        });
+      }
+      $('#dashCategoryTableBody').html(catTableHtml);
+
+      if (dashCatChart) {
+        dashCatChart.destroy();
+        dashCatChart = null;
+      }
+      const categoryCanvas = document.getElementById('categoryChart');
+      if (categoryCanvas) {
+        const ctxCat = categoryCanvas.getContext('2d');
+        dashCatChart = new Chart(ctxCat, {
+          type: 'doughnut',
+          data: {
+            labels: categoryData.map(item => item.type),
+            datasets: [{
+              data: categoryData.map(item => item.total),
+              backgroundColor: CHART_COLORS
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'bottom'
+              }
+            }
+          }
+        });
+      }
+
+      // Render Monthly Spending Trend comparison line chart
+      renderInstantMonthlyTrend();
+    }
+
+    function addTrendGraph() {
+      if (filterGroupCount >= 10) {
+        Swal.fire('Limit Reached', 'You can compare up to 10 graphs at a time.', 'warning');
+        return;
+      }
+
+      const index = filterGroupCount;
+      filterGroupCount++;
+
+      const filterHtml = `
+        <div class="flex flex-col sm:flex-row sm:items-center gap-2 trend-filter-group mt-2" data-index="${index}">
+          <div class="flex items-center justify-between w-full sm:w-auto">
+            <span class="text-xs font-bold text-gray-500 uppercase tracking-wide filter-label shrink-0">Graph ${index + 1}</span>
+            <button type="button" onclick="removeTrendGraph(this)" class="sm:hidden w-8 h-8 inline-flex items-center justify-center text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full focus:outline-none transition-colors">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+          <select class="trend-spent-on w-full sm:flex-1 min-w-0 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm border py-2 px-3" onchange="renderInstantMonthlyTrend()">
+            <option value="">All Spent On</option>
+            <option value="Samanwita">Samanwita</option>
+            <option value="Mainak">Mainak</option>
+            <option value="Tashi">Tashi</option>
+            <option value="Family">Family</option>
+            <option value="Others">Others</option>
+          </select>
+          <select class="trend-category w-full sm:flex-1 min-w-0 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm border py-2 px-3" onchange="renderInstantMonthlyTrend()">
+            <option value="">All Categories</option>
+            <option value="Grocery">Grocery</option>
+            <option value="Food">Food</option>
+            <option value="Shopping">Shopping</option>
+            <option value="Gift">Gift</option>
+            <option value="Transportation">Transportation</option>
+            <option value="Entertainment">Entertainment</option>
+            <option value="Medical">Medical</option>
+            <option value="Maintenance">Maintenance</option>
+            <option value="Self Improvement">Self Improvement</option>
+            <option value="Business">Business</option>
+            <option value="Others">Others</option>
+          </select>
+          <button type="button" onclick="removeTrendGraph(this)" class="hidden sm:inline-flex w-8 h-8 items-center justify-center text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full focus:outline-none transition-colors">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      `;
+
+      $('#trendFiltersContainer').append(filterHtml);
+      updateTrendGraphLabels();
+
+      if (filterGroupCount >= 10) {
+        $('#addGraphBtn').hide();
+      }
+
+      renderInstantMonthlyTrend();
+    }
+
+    function removeTrendGraph(btn) {
+      $(btn).closest('.trend-filter-group').remove();
+      filterGroupCount--;
+      updateTrendGraphLabels();
+      $('#addGraphBtn').show();
+      renderInstantMonthlyTrend();
+    }
+
+    function updateTrendGraphLabels() {
+      $('.trend-filter-group').each(function(idx) {
+        $(this).find('.filter-label').text(`Graph ${idx + 1}`);
+        $(this).attr('data-index', idx);
+      });
+    }
+
+    function renderInstantMonthlyTrend() {
+      const datasetsInfo = [];
+      const trendsArray = [];
+
+      $('.trend-filter-group').each(function(idx) {
+        const spentOn = $(this).find('.trend-spent-on').val();
+        const category = $(this).find('.trend-category').val();
+
+        let labelParts = [];
+        if (spentOn) labelParts.push(spentOn);
+        if (category) labelParts.push(category);
+        const label = labelParts.length > 0 ? labelParts.join(' - ') : `Graph ${idx + 1} (All)`;
+        datasetsInfo.push({ label: label });
+
+        const monthMap = {};
+        allExpenses.forEach(e => {
+          if (spentOn && e.for_whom !== spentOn) return;
+          if (category && e.type !== category) return;
+          const my = e.expense_date.substring(0, 7); // 'YYYY-MM'
+          monthMap[my] = (monthMap[my] || 0) + e.amount;
+        });
+
+        const trend = Object.keys(monthMap).map(my => ({ month_year: my, total: monthMap[my] }));
+        trendsArray.push(trend);
+      });
+
+      const trendCanvas = document.getElementById('trendChart');
+      if (!trendCanvas) return;
+      const ctxTrend = trendCanvas.getContext('2d');
+
+      if (trendChart) {
+        trendChart.destroy();
+        trendChart = null;
+      }
+
+      // Gather all unique month_year labels across datasets
+      let allMonthYears = new Set();
+      trendsArray.forEach(trendData => {
+        trendData.forEach(item => allMonthYears.add(item.month_year));
+      });
+
+      let sortedMonthYears = Array.from(allMonthYears).sort();
+
+      // Prepend previous month zero-entry (matching dashboard.php)
+      if (sortedMonthYears.length > 0) {
+        const firstEntry = sortedMonthYears[0];
+        const [year, month] = firstEntry.split('-').map(Number);
+        let prevMonth = month - 1;
+        let prevYear = year;
+        if (prevMonth === 0) {
+          prevMonth = 12;
+          prevYear = year - 1;
+        }
+        const prevMonthYear = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
+        if (!sortedMonthYears.includes(prevMonthYear)) {
+          sortedMonthYears.unshift(prevMonthYear);
+        }
+      } else {
+        const d = new Date();
+        sortedMonthYears = [`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2, '0')}`];
+      }
+
+      // Format labels (YYYY-MM to Short Month YYYY)
+      const labels = sortedMonthYears.map(my => {
+        const [year, month] = my.split('-');
+        const date = new Date(year, month - 1);
+        return date.toLocaleString('default', { month: 'short', year: 'numeric' });
+      });
+
+      const datasets = trendsArray.map((trendData, idx) => {
+        const color = CHART_COLORS[idx % CHART_COLORS.length];
+        const dataPoints = sortedMonthYears.map(my => {
+          const found = trendData.find(item => item.month_year === my);
+          return found ? parseFloat(found.total) : 0;
+        });
+
+        return {
+          label: datasetsInfo[idx].label,
+          data: dataPoints,
+          borderColor: color,
+          backgroundColor: color + '1A', // Hex 10% opacity
+          fill: true,
+          tension: 0.4,
+          pointBackgroundColor: color,
+          pointBorderColor: '#fff',
+          pointHoverRadius: 6
+        };
+      });
+
+      trendChart = new Chart(ctxTrend, {
+        type: 'line',
         data: {
-          labels: categoryData.map(c => c.type),
-          datasets: [{
-            data: categoryData.map(c => c.total),
-            backgroundColor: ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#8b5cf6', '#3b82f6', '#14b8a6']
-          }]
+          labels: labels,
+          datasets: datasets
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } }
+          interaction: {
+            mode: 'index',
+            intersect: false,
+          },
+          layout: {
+            padding: { left: 0, right: 0 }
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { maxRotation: 45, minRotation: 45 },
+              offset: false
+            },
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback: function(value) {
+                  return '₹' + value.toLocaleString('en-IN');
+                }
+              }
+            }
+          },
+          plugins: {
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return context.dataset.label + ': ₹' + parseFloat(context.raw).toLocaleString('en-IN', {minimumFractionDigits: 2});
+                }
+              }
+            },
+            legend: {
+              display: datasets.length > 1,
+              position: 'top'
+            }
+          }
         }
       });
     }
@@ -1670,85 +1931,484 @@
     // =============================================================
     // 0-MILLISECOND INSTANT ANALYSIS
     // =============================================================
-    function renderInstantAnalysis(e) {
+    function handleAnalysisFormSubmit(e) {
       if (e) e.preventDefault();
-
-      const cat = $('#analysisCat').val();
-      const whom = $('#analysisWhom').val();
-      const fromDate = $('#analysisFromDate').val();
-      const toDate = $('#analysisToDate').val();
-
-      let totalSpending = 0;
-      const whomMap = {};
-      const catMap = {};
-
-      allExpenses.forEach(exp => {
-        if (cat && exp.type !== cat) return;
-        if (whom && exp.for_whom !== whom) return;
-        if (fromDate && exp.expense_date < fromDate) return;
-        if (toDate && exp.expense_date > toDate) return;
-
-        totalSpending += exp.amount;
-        whomMap[exp.for_whom] = (whomMap[exp.for_whom] || 0) + exp.amount;
-        catMap[exp.type] = (catMap[exp.type] || 0) + exp.amount;
-      });
-
-      const spent_on_data = Object.keys(whomMap).map(k => ({ name: k, total: whomMap[k] })).sort((a, b) => b.total - a.total);
-      const category_data = Object.keys(catMap).map(k => ({ type: k, total: catMap[k] })).sort((a, b) => b.total - a.total);
-
-      let whomHtml = '';
-      spent_on_data.forEach(d => {
-        const pct = totalSpending > 0 ? ((d.total / totalSpending) * 100).toFixed(1) : 0;
-        whomHtml += `
-          <tr>
-            <td class="px-4 py-2 font-medium text-gray-900">${d.name}</td>
-            <td class="px-4 py-2 text-right font-mono text-gray-600">₹${parseFloat(d.total).toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
-            <td class="px-4 py-2 text-right font-bold text-indigo-600">${pct}%</td>
-          </tr>
-        `;
-      });
-      $('#analysisWhomTableBody').html(whomHtml);
-
-      if (analysisWhomChartInstance) analysisWhomChartInstance.destroy();
-      const ctxWhom = document.getElementById('analysisWhomChart').getContext('2d');
-      analysisWhomChartInstance = new Chart(ctxWhom, {
-        type: 'doughnut',
-        data: {
-          labels: spent_on_data.map(d => d.name),
-          datasets: [{ data: spent_on_data.map(d => d.total), backgroundColor: ['#3b82f6', '#ec4899', '#f59e0b', '#10b981', '#8b5cf6'] }]
-        },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
-      });
-
-      let catHtml = '';
-      category_data.forEach(d => {
-        const pct = totalSpending > 0 ? ((d.total / totalSpending) * 100).toFixed(1) : 0;
-        catHtml += `
-          <tr>
-            <td class="px-4 py-2 font-medium text-gray-900">${d.type}</td>
-            <td class="px-4 py-2 text-right font-mono text-gray-600">₹${parseFloat(d.total).toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
-            <td class="px-4 py-2 text-right font-bold text-indigo-600">${pct}%</td>
-          </tr>
-        `;
-      });
-      $('#analysisCatTableBody').html(catHtml);
-
-      if (analysisCatChartInstance) analysisCatChartInstance.destroy();
-      const ctxCat = document.getElementById('analysisCatChart').getContext('2d');
-      analysisCatChartInstance = new Chart(ctxCat, {
-        type: 'doughnut',
-        data: {
-          labels: category_data.map(d => d.type),
-          datasets: [{ data: category_data.map(d => d.total), backgroundColor: ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#8b5cf6', '#3b82f6', '#14b8a6'] }]
-        },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
-      });
+      renderInstantAnalysis();
     }
 
     function resetAnalysisFilters() {
       $('#analysisFilterForm')[0].reset();
       renderInstantAnalysis();
     }
+
+    function renderInstantAnalysis() {
+      const cat = $('#filterCategory').val();
+      const spentOn = $('#filterSpentOn').val();
+      const fromDate = $('#fromDate').val();
+      const toDate = $('#toDate').val();
+
+      let totalSpending = 0;
+      const userMap = {};
+      const catMap = {};
+
+      allExpenses.forEach(exp => {
+        if (cat && exp.type !== cat) return;
+        if (spentOn && exp.for_whom !== spentOn) return;
+        if (fromDate && exp.expense_date < fromDate) return;
+        if (toDate && exp.expense_date > toDate) return;
+
+        totalSpending += exp.amount;
+        userMap[exp.for_whom || 'Others'] = (userMap[exp.for_whom || 'Others'] || 0) + exp.amount;
+        catMap[exp.type] = (catMap[exp.type] || 0) + exp.amount;
+      });
+
+      if (totalSpending === 0) {
+        $('#analysisResults').addClass('hidden');
+        $('#noAnalysisData').removeClass('hidden');
+        return;
+      }
+
+      $('#analysisResults').removeClass('hidden');
+      $('#noAnalysisData').addClass('hidden');
+
+      // Update total expenditure banner
+      $('#totalPeriodSpending').text(`₹${parseFloat(totalSpending).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`);
+
+      // 1. Spent On Analysis Table & Chart
+      const userData = Object.keys(userMap).map(k => ({ name: k, total: userMap[k] })).sort((a, b) => b.total - a.total);
+      let userTableHtml = '';
+      userData.forEach(item => {
+        const percentage = ((item.total / totalSpending) * 100).toFixed(1);
+        userTableHtml += `
+          <tr>
+            <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+              <button type="button" onclick="showSpentOnDetails('${escapeHtml(item.name)}')" class="text-indigo-600 hover:text-indigo-900 hover:underline focus:outline-none font-medium">
+                ${escapeHtml(item.name)}
+              </button>
+            </td>
+            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-right font-mono">₹${parseFloat(item.total).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-right font-medium">${percentage}%</td>
+          </tr>
+        `;
+      });
+      $('#userAnalysisTableBody').html(userTableHtml);
+
+      if (userAnalysisChart) {
+        userAnalysisChart.destroy();
+        userAnalysisChart = null;
+      }
+      const ctxUser = document.getElementById('userAnalysisChart')?.getContext('2d');
+      if (ctxUser) {
+        userAnalysisChart = new Chart(ctxUser, {
+          type: 'pie',
+          data: {
+            labels: userData.map(item => item.name),
+            datasets: [{
+              data: userData.map(item => item.total),
+              backgroundColor: CHART_COLORS
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: 'bottom' },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    const val = context.raw;
+                    const perc = ((val / totalSpending) * 100).toFixed(1);
+                    return `${context.label}: ₹${parseFloat(val).toLocaleString('en-IN')} (${perc}%)`;
+                  }
+                }
+              }
+            }
+          }
+        });
+      }
+
+      // 2. Category Analysis Table & Chart
+      const categoryData = Object.keys(catMap).map(k => ({ type: k, total: catMap[k] })).sort((a, b) => b.total - a.total);
+      let catTableHtml = '';
+      categoryData.forEach(item => {
+        const percentage = ((item.total / totalSpending) * 100).toFixed(1);
+        catTableHtml += `
+          <tr>
+            <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+              <button type="button" onclick="showCategoryDetails('${escapeHtml(item.type)}')" class="text-indigo-600 hover:text-indigo-900 hover:underline focus:outline-none font-medium">
+                ${escapeHtml(item.type)}
+              </button>
+            </td>
+            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-right font-mono">₹${parseFloat(item.total).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-right font-medium">${percentage}%</td>
+          </tr>
+        `;
+      });
+      $('#categoryAnalysisTableBody').html(catTableHtml);
+
+      if (categoryAnalysisChart) {
+        categoryAnalysisChart.destroy();
+        categoryAnalysisChart = null;
+      }
+      const ctxCatAnalysis = document.getElementById('categoryAnalysisChart')?.getContext('2d');
+      if (ctxCatAnalysis) {
+        categoryAnalysisChart = new Chart(ctxCatAnalysis, {
+          type: 'doughnut',
+          data: {
+            labels: categoryData.map(item => item.type),
+            datasets: [{
+              data: categoryData.map(item => item.total),
+              backgroundColor: CHART_COLORS
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: 'bottom' },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    const val = context.raw;
+                    const perc = ((val / totalSpending) * 100).toFixed(1);
+                    return `${context.label}: ₹${parseFloat(val).toLocaleString('en-IN')} (${perc}%)`;
+                  }
+                }
+              }
+            }
+          }
+        });
+      }
+
+      // 3. Render Time Series Trend
+      renderInstantTimeSeriesChart();
+    }
+
+    function addAnalysisTrendGraph() {
+      if (trendFilterGroupCount >= 10) {
+        Swal.fire('Limit Reached', 'You can compare up to 10 graphs at a time.', 'warning');
+        return;
+      }
+
+      const index = trendFilterGroupCount;
+      trendFilterGroupCount++;
+
+      const filterHtml = `
+        <div class="flex flex-col sm:flex-row sm:items-center gap-2 analysis-trend-filter-group mt-2" data-index="${index}">
+          <div class="flex items-center justify-between w-full sm:w-auto">
+            <span class="text-xs font-bold text-gray-500 uppercase tracking-wide filter-label shrink-0">Graph ${index + 1}</span>
+            <button type="button" onclick="removeAnalysisTrendGraph(this)" class="sm:hidden w-8 h-8 inline-flex items-center justify-center text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full focus:outline-none transition-colors">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+          <select class="analysis-trend-spent-on w-full sm:flex-1 min-w-0 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm border py-2 px-3" onchange="renderInstantTimeSeriesChart()">
+            <option value="">All Spent On</option>
+            <option value="Samanwita">Samanwita</option>
+            <option value="Mainak">Mainak</option>
+            <option value="Tashi">Tashi</option>
+            <option value="Family">Family</option>
+            <option value="Others">Others</option>
+          </select>
+          <select class="analysis-trend-category w-full sm:flex-1 min-w-0 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm border py-2 px-3" onchange="renderInstantTimeSeriesChart()">
+            <option value="">All Categories</option>
+            <option value="Grocery">Grocery</option><option value="Food">Food</option><option value="Shopping">Shopping</option>
+            <option value="Gift">Gift</option><option value="Transportation">Transportation</option><option value="Entertainment">Entertainment</option>
+            <option value="Medical">Medical</option><option value="Maintenance">Maintenance</option><option value="Self Improvement">Self Improvement</option>
+            <option value="Business">Business</option><option value="Others">Others</option>
+          </select>
+          <button type="button" onclick="removeAnalysisTrendGraph(this)" class="hidden sm:inline-flex w-8 h-8 items-center justify-center text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full focus:outline-none transition-colors">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      `;
+
+      $('#analysisTrendFiltersContainer').append(filterHtml);
+      updateAnalysisTrendLabels();
+
+      if (trendFilterGroupCount >= 10) {
+        $('#addAnalysisGraphBtn').hide();
+      }
+
+      renderInstantTimeSeriesChart();
+    }
+
+    function removeAnalysisTrendGraph(btn) {
+      $(btn).closest('.analysis-trend-filter-group').remove();
+      trendFilterGroupCount--;
+      updateAnalysisTrendLabels();
+      $('#addAnalysisGraphBtn').show();
+      renderInstantTimeSeriesChart();
+    }
+
+    function updateAnalysisTrendLabels() {
+      $('.analysis-trend-filter-group').each(function(idx) {
+        $(this).find('.filter-label').text(`Graph ${idx + 1}`);
+        $(this).attr('data-index', idx);
+      });
+    }
+
+    function zoomInTimeSeries() {
+      if (timeSeriesChart && timeSeriesChart.zoom) timeSeriesChart.zoom(1.1);
+    }
+    function zoomOutTimeSeries() {
+      if (timeSeriesChart && timeSeriesChart.zoom) timeSeriesChart.zoom(0.9);
+    }
+    function resetZoomTimeSeries() {
+      if (timeSeriesChart && timeSeriesChart.resetZoom) timeSeriesChart.resetZoom();
+    }
+
+    function renderInstantTimeSeriesChart() {
+      const timeCanvas = document.getElementById('timeSeriesChart');
+      if (!timeCanvas) return;
+      const ctx = timeCanvas.getContext('2d');
+
+      if (timeSeriesChart) {
+        timeSeriesChart.destroy();
+        timeSeriesChart = null;
+      }
+
+      const fromDate = $('#fromDate').val();
+      const toDate = $('#toDate').val();
+
+      const datasetsInfo = [];
+      const trendsArray = [];
+
+      $('.analysis-trend-filter-group').each(function(idx) {
+        const spentOn = $(this).find('.analysis-trend-spent-on').val();
+        const category = $(this).find('.analysis-trend-category').val();
+
+        let labelParts = [];
+        if (spentOn) labelParts.push(spentOn);
+        if (category) labelParts.push(category);
+        const label = labelParts.length > 0 ? labelParts.join(' - ') : `Graph ${idx + 1} (All)`;
+        datasetsInfo.push({ label });
+
+        const dateMap = {};
+        allExpenses.forEach(e => {
+          if (spentOn && e.for_whom !== spentOn) return;
+          if (category && e.type !== category) return;
+          if (fromDate && e.expense_date < fromDate) return;
+          if (toDate && e.expense_date > toDate) return;
+
+          dateMap[e.expense_date] = (dateMap[e.expense_date] || 0) + e.amount;
+        });
+
+        const dailyList = Object.keys(dateMap).sort().map(d => ({ date: d, total: dateMap[d] }));
+        trendsArray.push(dailyList);
+      });
+
+      const datasets = trendsArray.map((trendData, idx) => {
+        const color = CHART_COLORS[idx % CHART_COLORS.length];
+        const dataPoints = trendData.map(item => ({
+          x: item.date,
+          y: parseFloat(item.total)
+        }));
+
+        return {
+          label: datasetsInfo[idx].label,
+          data: dataPoints,
+          borderColor: color,
+          backgroundColor: color + '1A',
+          fill: false,
+          tension: 0.1,
+          pointBackgroundColor: color,
+          pointBorderColor: '#fff',
+          pointRadius: 3,
+          pointHoverRadius: 6
+        };
+      });
+
+      timeSeriesChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          datasets: datasets
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            mode: 'nearest',
+            axis: 'x',
+            intersect: false,
+          },
+          layout: { padding: { left: 0, right: 0 } },
+          scales: {
+            x: {
+              type: 'time',
+              time: {
+                tooltipFormat: 'MMM d, yyyy'
+              },
+              grid: { display: false }
+            },
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback: function(value) {
+                  return '₹' + value.toLocaleString('en-IN');
+                }
+              }
+            }
+          },
+          plugins: {
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return context.dataset.label + ': ₹' + parseFloat(context.raw.y).toLocaleString('en-IN', {minimumFractionDigits: 2});
+                }
+              }
+            },
+            zoom: {
+              pan: {
+                enabled: true,
+                mode: 'x',
+                modifierKey: 'ctrl',
+              },
+              zoom: {
+                wheel: { enabled: true },
+                pinch: { enabled: true },
+                mode: 'x',
+              }
+            },
+            legend: {
+              display: datasets.length > 1,
+              position: 'top'
+            }
+          }
+        }
+      });
+    }
+
+    // =============================================================
+    // MODAL DRILL-DOWNS: Category & Spent On Details
+    // =============================================================
+    function showCategoryDetails(category) {
+      $('#selectedCategoryName').text(category);
+      $('#categoryDetailsModal').removeClass('hidden');
+
+      const spentOn = $('#filterSpentOn').val();
+      const fromDate = $('#fromDate').val();
+      const toDate = $('#toDate').val();
+
+      const matching = allExpenses.filter(e => {
+        if (e.type !== category) return false;
+        if (spentOn && e.for_whom !== spentOn) return false;
+        if (fromDate && e.expense_date < fromDate) return false;
+        if (toDate && e.expense_date > toDate) return false;
+        return true;
+      });
+
+      let tableHtml = '';
+      let cardHtml = '';
+
+      if (matching.length === 0) {
+        tableHtml = '<tr><td colspan="5" class="px-4 py-8 text-center text-gray-500">No expenses found for this category.</td></tr>';
+        cardHtml = '<div class="text-center py-8 text-gray-500 text-sm">No expenses found.</div>';
+      } else {
+        matching.forEach(expense => {
+          const date = formatDisplayDate(expense.expense_date);
+          const amount = parseFloat(expense.amount).toLocaleString('en-IN', {minimumFractionDigits: 2});
+          
+          tableHtml += `
+            <tr>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${date}</td>
+              <td class="px-4 py-3 text-sm text-gray-900 font-medium">${escapeHtml(expense.title)}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-mono">₹${amount}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${escapeHtml(expense.for_whom || 'Family')}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${escapeHtml(expense.creator_name || 'Unknown')}</td>
+            </tr>
+          `;
+
+          cardHtml += `
+            <div class="bg-white shadow-sm rounded-lg p-4 border-l-4 border-indigo-500 w-full mb-3">
+              <div class="flex justify-between items-start mb-2 gap-2">
+                <div class="min-w-0 flex-1">
+                  <h4 class="text-sm font-bold text-gray-900 truncate" title="${escapeHtml(expense.title)}">${escapeHtml(expense.title)}</h4>
+                  <p class="text-xs text-gray-500">${date}</p>
+                </div>
+                <div class="text-right flex-shrink-0">
+                  <p class="text-sm font-bold text-indigo-600">₹${amount}</p>
+                </div>
+              </div>
+              <div class="mt-2 pt-2 border-t border-gray-100 flex justify-between items-center">
+                <span class="text-[10px] text-gray-400 uppercase font-semibold">Spent On</span>
+                <span class="text-xs text-gray-600 font-medium truncate">${escapeHtml(expense.for_whom || 'Family')}</span>
+              </div>
+            </div>
+          `;
+        });
+      }
+      $('#categoryDetailsTableBody').html(tableHtml);
+      $('#categoryDetailsMobileCards').html(cardHtml);
+    }
+
+    function closeCategoryModal() {
+      $('#categoryDetailsModal').addClass('hidden');
+    }
+
+    function showSpentOnDetails(spentOn) {
+      $('#selectedSpentOnName').text(spentOn);
+      $('#spentOnDetailsModal').removeClass('hidden');
+
+      const cat = $('#filterCategory').val();
+      const fromDate = $('#fromDate').val();
+      const toDate = $('#toDate').val();
+
+      const matching = allExpenses.filter(e => {
+        if (e.for_whom !== spentOn) return false;
+        if (cat && e.type !== cat) return false;
+        if (fromDate && e.expense_date < fromDate) return false;
+        if (toDate && e.expense_date > toDate) return false;
+        return true;
+      });
+
+      let tableHtml = '';
+      let cardHtml = '';
+
+      if (matching.length === 0) {
+        tableHtml = '<tr><td colspan="5" class="px-4 py-8 text-center text-gray-500">No expenses found for this person.</td></tr>';
+        cardHtml = '<div class="text-center py-8 text-gray-500 text-sm">No expenses found.</div>';
+      } else {
+        matching.forEach(expense => {
+          const date = formatDisplayDate(expense.expense_date);
+          const amount = parseFloat(expense.amount).toLocaleString('en-IN', {minimumFractionDigits: 2});
+          
+          tableHtml += `
+            <tr>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${date}</td>
+              <td class="px-4 py-3 text-sm text-gray-900 font-medium">${escapeHtml(expense.title)}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-mono">₹${amount}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${escapeHtml(expense.type)}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${escapeHtml(expense.creator_name || 'Unknown')}</td>
+            </tr>
+          `;
+
+          cardHtml += `
+            <div class="bg-white shadow-sm rounded-lg p-4 border-l-4 border-indigo-500 w-full mb-3">
+              <div class="flex justify-between items-start mb-2 gap-2">
+                <div class="min-w-0 flex-1">
+                  <h4 class="text-sm font-bold text-gray-900 truncate" title="${escapeHtml(expense.title)}">${escapeHtml(expense.title)}</h4>
+                  <p class="text-xs text-gray-500">${date}</p>
+                </div>
+                <div class="text-right flex-shrink-0">
+                  <p class="text-sm font-bold text-indigo-600">₹${amount}</p>
+                </div>
+              </div>
+              <div class="mt-2 pt-2 border-t border-gray-100 flex justify-between items-center">
+                <span class="text-[10px] text-gray-400 uppercase font-semibold">Category</span>
+                <span class="text-xs text-gray-600 font-medium truncate">${escapeHtml(expense.type)}</span>
+              </div>
+            </div>
+          `;
+        });
+      }
+      $('#spentOnDetailsTableBody').html(tableHtml);
+      $('#spentOnDetailsMobileCards').html(cardHtml);
+    }
+
+    function closeSpentOnModal() {
+      $('#spentOnDetailsModal').addClass('hidden');
+    }
+
 
     // =============================================================
     // SERVER-CONFIRMED AUTO-UPDATE (No Manual Refresh Required!)
