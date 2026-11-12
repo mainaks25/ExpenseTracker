@@ -16,9 +16,45 @@
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-  <!-- Firebase SDK (v10 Compat CDN for instant 0-build browser execution) -->
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <!-- Firebase Modular SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { 
+      getFirestore, collection, doc, setDoc, updateDoc, 
+      query, where, onSnapshot, getDocs, orderBy, limit 
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyB-oQnG-iU6rkxcmPc9a-qOVDatKz7K-dk",
+      authDomain: "expensetracker-856a8.firebaseapp.com",
+      projectId: "expensetracker-856a8",
+      storageBucket: "expensetracker-856a8.firebasestorage.app",
+      messagingSenderId: "48639573457",
+      appId: "1:48639573457:web:a1617879d59db2603974f0",
+      measurementId: "G-P2Z2CLBEKV"
+    };
+
+    try {
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app, "default");
+      window.FS = {
+        db,
+        collection,
+        doc,
+        setDoc,
+        updateDoc,
+        query,
+        where,
+        onSnapshot,
+        getDocs,
+        orderBy,
+        limit
+      };
+      window.dispatchEvent(new Event('fs-ready'));
+    } catch (e) {
+      console.error("Firebase modular init error:", e);
+    }
+  </script>
 
   <style>
     :root {
@@ -641,45 +677,8 @@
   <!-- ⚡ HIGH-SPEED FIREBASE + CLIENT-SIDE JAVASCRIPT ENGINE           -->
   <!-- ============================================================== -->
   <script>
-    // ==============================================================
-    // ⚡ FIREBASE FIRESTORE REAL-TIME CONFIGURATION
-    // ==============================================================
-    const firebaseConfig = {
-      apiKey: "AIzaSyB-oQnG-iU6rkxcmPc9a-qOVDatKz7K-dk",
-      authDomain: "expensetracker-856a8.firebaseapp.com",
-      projectId: "expensetracker-856a8",
-      storageBucket: "expensetracker-856a8.firebasestorage.app",
-      messagingSenderId: "48639573457",
-      appId: "1:48639573457:web:a1617879d59db2603974f0",
-      measurementId: "G-P2Z2CLBEKV"
-    };
-
-    // Fallback Google Apps Script URL (in case Firebase is not configured yet)
+    // Fallback Google Apps Script URL (in case Firebase is offline)
     const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxPA5Kv4ysmn6tS0a27jQ29BPSdtjUel68-sWWVNxd7IbUiXrFqokNFFOKQaDXiOTLy3A/exec';
-
-    let db = null;
-    const isFirebaseConfigured = firebaseConfig.projectId && 
-                                 firebaseConfig.projectId !== "REPLACE_WITH_YOUR_PROJECT_ID" && 
-                                 !firebaseConfig.projectId.includes("REPLACE_");
-
-    if (isFirebaseConfigured && typeof firebase !== 'undefined') {
-      try {
-        firebase.initializeApp(firebaseConfig);
-        try {
-          db = firebase.app().firestore('default');
-        } catch (e1) {
-          db = firebase.firestore();
-        }
-        // Enable offline persistence & multi-tab synchronization
-        db.enablePersistence({ synchronizeTabs: true }).catch(err => {
-          if (err.code !== 'failed-precondition' && err.code !== 'unimplemented') {
-            console.warn('Firestore persistence notice:', err);
-          }
-        });
-      } catch (e) {
-        console.error('Firebase init error:', e);
-      }
-    }
 
     // In-Memory state for 0-millisecond instant UI updates
     let allExpenses = [];
@@ -767,97 +766,101 @@
 
       // Start Real-Time Firestore Synchronization
       listenToExpenses();
+      initUsersListener();
+    }
 
-      // Sync Users from Firestore if connected
-      if (db) {
-        db.collection('users').onSnapshot(snap => {
-          const uList = [];
-          snap.forEach(doc => uList.push(doc.data()));
-          if (uList.length > 0) {
-            cachedUsers = uList;
-            localStorage.setItem('et_cached_users', JSON.stringify(cachedUsers));
-            populateUserFilter(cachedUsers);
-            if (!currentUser) renderProfileButtons(cachedUsers);
-          }
-        });
+    function initUsersListener() {
+      if (!window.FS || !window.FS.db) {
+        window.addEventListener('fs-ready', () => initUsersListener(), { once: true });
+        return;
       }
+      window.FS.onSnapshot(window.FS.collection(window.FS.db, 'users'), snap => {
+        const uList = [];
+        snap.forEach(doc => uList.push(doc.data()));
+        if (uList.length > 0) {
+          cachedUsers = uList;
+          localStorage.setItem('et_cached_users', JSON.stringify(cachedUsers));
+          populateUserFilter(cachedUsers);
+          if (!currentUser) renderProfileButtons(cachedUsers);
+        }
+      });
     }
 
     let unsubscribeExpenses = null;
     let isInitialSnapshot = true;
 
     function listenToExpenses() {
-      if (!db) {
-        // Fall back to Google Apps Script bundle fetch if Firebase not configured
-        fetchInitialBundle();
+      if (!window.FS || !window.FS.db) {
+        window.addEventListener('fs-ready', () => listenToExpenses(), { once: true });
         return;
       }
 
       updateSyncBadge(true); // Spin badge
-
       if (unsubscribeExpenses) unsubscribeExpenses();
 
-      unsubscribeExpenses = db.collection('expenses')
-        .where('is_deleted', '==', 0)
-        .onSnapshot(snapshot => {
-          updateSyncBadge(false); // Green Synced
+      const q = window.FS.query(
+        window.FS.collection(window.FS.db, 'expenses'),
+        window.FS.where('is_deleted', '==', 0)
+      );
 
-          // Check for live updates made by other phones/users!
-          if (!isInitialSnapshot) {
-            snapshot.docChanges().forEach(change => {
-              const d = change.doc.data();
-              if (change.type === 'added') {
-                if (currentUser && d.created_by && Number(d.created_by) !== Number(currentUser.id)) {
-                  const creator = cachedUsers.find(u => Number(u.id) === Number(d.created_by))?.name || 'Someone';
-                  showLiveToast(`${creator} added ₹${d.amount} - ${d.title}`);
-                }
-              } else if (change.type === 'modified') {
-                if (currentUser && d.updated_by && Number(d.updated_by) !== Number(currentUser.id)) {
-                  const updator = cachedUsers.find(u => Number(u.id) === Number(d.updated_by))?.name || 'Someone';
-                  showLiveToast(`${updator} updated "${d.title}"`);
-                }
+      unsubscribeExpenses = window.FS.onSnapshot(q, snapshot => {
+        updateSyncBadge(false); // Green Synced
+
+        if (!isInitialSnapshot) {
+          snapshot.docChanges().forEach(change => {
+            const d = change.doc.data();
+            if (change.type === 'added') {
+              if (currentUser && d.created_by && Number(d.created_by) !== Number(currentUser.id)) {
+                const creator = cachedUsers.find(u => Number(u.id) === Number(d.created_by))?.name || 'Someone';
+                showLiveToast(`${creator} added ₹${d.amount} - ${d.title}`);
               }
-            });
-          }
-          isInitialSnapshot = false;
-
-          const list = [];
-          let minDate = '9999-99-99';
-          snapshot.forEach(doc => {
-            const d = doc.data();
-            const creator = cachedUsers.find(u => Number(u.id) === Number(d.created_by))?.name || `User #${d.created_by}`;
-            list.push({ ...d, creator_name: creator });
-            if (d.expense_date && d.expense_date < minDate) {
-              minDate = d.expense_date;
+            } else if (change.type === 'modified') {
+              if (currentUser && d.updated_by && Number(d.updated_by) !== Number(currentUser.id)) {
+                const updator = cachedUsers.find(u => Number(u.id) === Number(d.updated_by))?.name || 'Someone';
+                showLiveToast(`${updator} updated "${d.title}"`);
+              }
             }
           });
+        }
+        isInitialSnapshot = false;
 
-          // Sort descending: by date, then by ID
-          list.sort((a, b) => {
-            if (b.expense_date !== a.expense_date) {
-              return b.expense_date.localeCompare(a.expense_date);
-            }
-            return (Number(b.id) || 0) - (Number(a.id) || 0);
-          });
-
-          allExpenses = list;
-          if (minDate !== '9999-99-99') {
-            const parts = minDate.split('-');
-            if (parts.length === 3) firstRecordDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+        const list = [];
+        let minDate = '9999-99-99';
+        snapshot.forEach(docSnap => {
+          const d = docSnap.data();
+          const creator = cachedUsers.find(u => Number(u.id) === Number(d.created_by))?.name || `User #${d.created_by}`;
+          list.push({ ...d, creator_name: creator });
+          if (d.expense_date && d.expense_date < minDate) {
+            minDate = d.expense_date;
           }
-
-          // Persist to local cache for 0.00s instant initial load next time
-          localStorage.setItem('et_cached_expenses', JSON.stringify(allExpenses));
-          localStorage.setItem('et_cached_first_date', firstRecordDate);
-
-          if (currentUser) {
-            renderInstantExpenses();
-            renderInstantMonthlySummary();
-          }
-        }, error => {
-          console.error('Firestore listener error:', error);
-          updateSyncBadge(false, true);
         });
+
+        // Sort descending: by date, then by ID
+        list.sort((a, b) => {
+          if (b.expense_date !== a.expense_date) {
+            return b.expense_date.localeCompare(a.expense_date);
+          }
+          return (Number(b.id) || 0) - (Number(a.id) || 0);
+        });
+
+        allExpenses = list;
+        if (minDate !== '9999-99-99') {
+          const parts = minDate.split('-');
+          if (parts.length === 3) firstRecordDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+
+        // Persist to local cache for 0.00s instant initial load next time
+        localStorage.setItem('et_cached_expenses', JSON.stringify(allExpenses));
+        localStorage.setItem('et_cached_first_date', firstRecordDate);
+
+        if (currentUser) {
+          renderInstantExpenses();
+          renderInstantMonthlySummary();
+        }
+      }, error => {
+        console.error('Firestore listener error:', error);
+        updateSyncBadge(false, true);
+      });
     }
 
     function showLiveToast(message) {
@@ -992,14 +995,16 @@
       btn.disabled = true;
 
       // 1. Verify against Firestore users if connected
-      if (db) {
+      if (window.FS && window.FS.db) {
         try {
-          const docSnap = await db.collection('users').doc(String(selectedProfile.id)).get();
+          const q = window.FS.query(window.FS.collection(window.FS.db, 'users'), window.FS.where('id', '==', Number(selectedProfile.id)));
+          const snap = await window.FS.getDocs(q);
+          let uData = null;
+          snap.forEach(d => { uData = d.data(); });
           btn.innerHTML = 'Sign In';
           btn.disabled = false;
-          if (docSnap.exists) {
-            const uData = docSnap.data();
-            if (uData.pin === pin || pin === '1234') {
+          if (uData) {
+            if (String(uData.pin) === String(pin) || pin === '1234') {
               currentUser = { id: uData.id, name: uData.name, role: uData.role };
               localStorage.setItem('et_user_session', JSON.stringify(currentUser));
               showApp();
@@ -1530,15 +1535,17 @@
           Swal.fire({ icon: 'success', title: 'Deleted!', text: 'Expense removed.', timer: 900, showConfirmButton: false });
 
           // 2. DISPATCH CLOUD DELETE IN BACKGROUND
-          if (db) {
+          if (window.FS && window.FS.db) {
             try {
-              await db.collection('expenses').doc(String(id)).update({
+              const docRef = window.FS.doc(window.FS.db, 'expenses', String(id));
+              await window.FS.updateDoc(docRef, {
                 is_deleted: 1,
                 updated_by: currentUser.id,
                 updated_at: nowStr
               });
               const logId = Date.now();
-              db.collection('audit_logs').doc(String(logId)).set({
+              const auditRef = window.FS.doc(window.FS.db, 'audit_logs', String(logId));
+              await window.FS.setDoc(auditRef, {
                 id: logId,
                 expense_id: id,
                 action: 'DELETE',
@@ -1609,12 +1616,14 @@
       Swal.fire({ icon: 'success', title: isEdit ? 'Updated!' : 'Saved!', timer: 900, showConfirmButton: false });
 
       // 2. DISPATCH CLOUD WRITE IN BACKGROUND (~30-50ms)
-      if (db) {
+      if (window.FS && window.FS.db) {
         try {
-          await db.collection('expenses').doc(String(targetId)).set(optimisticRecord, { merge: true });
+          const docRef = window.FS.doc(window.FS.db, 'expenses', String(targetId));
+          await window.FS.setDoc(docRef, optimisticRecord, { merge: true });
 
           const logId = Date.now();
-          db.collection('audit_logs').doc(String(logId)).set({
+          const auditRef = window.FS.doc(window.FS.db, 'audit_logs', String(logId));
+          await window.FS.setDoc(auditRef, {
             id: logId,
             expense_id: targetId,
             action: isEdit ? 'UPDATE' : 'CREATE',
@@ -1642,12 +1651,17 @@
     // AUDIT LOGS
     // =============================================================
     async function loadAuditLogs() {
-      if (db) {
+      if (window.FS && window.FS.db) {
         try {
-          const snap = await db.collection('audit_logs').orderBy('created_at', 'desc').limit(150).get();
+          const q = window.FS.query(
+            window.FS.collection(window.FS.db, 'audit_logs'),
+            window.FS.orderBy('created_at', 'desc'),
+            window.FS.limit(150)
+          );
+          const snap = await window.FS.getDocs(q);
           const logs = [];
-          snap.forEach(doc => {
-            const d = doc.data();
+          snap.forEach(docSnap => {
+            const d = docSnap.data();
             const uName = cachedUsers.find(u => Number(u.id) === Number(d.changed_by))?.name || `User #${d.changed_by}`;
             const expTitle = allExpenses.find(e => Number(e.id) === Number(d.expense_id))?.title || `Expense #${d.expense_id}`;
             logs.push({
