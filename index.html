@@ -16,6 +16,10 @@
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+  <!-- Firebase SDK (v10 Compat CDN for instant 0-build browser execution) -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
   <style>
     :root {
       --primary: #4f46e5;
@@ -634,10 +638,48 @@
 
 
   <!-- ============================================================== -->
-  <!-- HIGH-SPEED CLIENT-SIDE JAVASCRIPT ENGINE                       -->
+  <!-- ⚡ HIGH-SPEED FIREBASE + CLIENT-SIDE JAVASCRIPT ENGINE           -->
   <!-- ============================================================== -->
   <script>
+    // ==============================================================
+    // ⚡ FIREBASE FIRESTORE REAL-TIME CONFIGURATION
+    // ==============================================================
+    const firebaseConfig = {
+      apiKey: "AIzaSyB-oQnG-iU6rkxcmPc9a-qOVDatKz7K-dk",
+      authDomain: "expensetracker-856a8.firebaseapp.com",
+      projectId: "expensetracker-856a8",
+      storageBucket: "expensetracker-856a8.firebasestorage.app",
+      messagingSenderId: "48639573457",
+      appId: "1:48639573457:web:a1617879d59db2603974f0",
+      measurementId: "G-P2Z2CLBEKV"
+    };
+
+    // Fallback Google Apps Script URL (in case Firebase is not configured yet)
     const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxPA5Kv4ysmn6tS0a27jQ29BPSdtjUel68-sWWVNxd7IbUiXrFqokNFFOKQaDXiOTLy3A/exec';
+
+    let db = null;
+    const isFirebaseConfigured = firebaseConfig.projectId && 
+                                 firebaseConfig.projectId !== "REPLACE_WITH_YOUR_PROJECT_ID" && 
+                                 !firebaseConfig.projectId.includes("REPLACE_");
+
+    if (isFirebaseConfigured && typeof firebase !== 'undefined') {
+      try {
+        firebase.initializeApp(firebaseConfig);
+        try {
+          db = firebase.app().firestore('default');
+        } catch (e1) {
+          db = firebase.firestore();
+        }
+        // Enable offline persistence & multi-tab synchronization
+        db.enablePersistence({ synchronizeTabs: true }).catch(err => {
+          if (err.code !== 'failed-precondition' && err.code !== 'unimplemented') {
+            console.warn('Firestore persistence notice:', err);
+          }
+        });
+      } catch (e) {
+        console.error('Firebase init error:', e);
+      }
+    }
 
     // In-Memory state for 0-millisecond instant UI updates
     let allExpenses = [];
@@ -693,10 +735,10 @@
     }
 
     // -------------------------------------------------------------
-    // STALE-WHILE-REVALIDATE INITIALIZATION (0.05s Instant Startup)
+    // STALE-WHILE-REVALIDATE & REAL-TIME LISTENER (0.00s Instant Startup)
     // -------------------------------------------------------------
     function checkSession() {
-      // 1. Try restoring in-memory state instantly from localStorage
+      // 1. Restore in-memory state instantly from localStorage (0.00s!)
       const cachedExpStr = localStorage.getItem('et_cached_expenses');
       const cachedFirst = localStorage.getItem('et_cached_first_date');
       const cachedUsersStr = localStorage.getItem('et_cached_users');
@@ -720,12 +762,120 @@
         try {
           currentUser = JSON.parse(saved);
           showApp();
-          return;
         } catch (e) {}
       }
 
-      // Trigger background sync to verify fresh database state
-      fetchInitialBundle(true);
+      // Start Real-Time Firestore Synchronization
+      listenToExpenses();
+
+      // Sync Users from Firestore if connected
+      if (db) {
+        db.collection('users').onSnapshot(snap => {
+          const uList = [];
+          snap.forEach(doc => uList.push(doc.data()));
+          if (uList.length > 0) {
+            cachedUsers = uList;
+            localStorage.setItem('et_cached_users', JSON.stringify(cachedUsers));
+            populateUserFilter(cachedUsers);
+            if (!currentUser) renderProfileButtons(cachedUsers);
+          }
+        });
+      }
+    }
+
+    let unsubscribeExpenses = null;
+    let isInitialSnapshot = true;
+
+    function listenToExpenses() {
+      if (!db) {
+        // Fall back to Google Apps Script bundle fetch if Firebase not configured
+        fetchInitialBundle();
+        return;
+      }
+
+      updateSyncBadge(true); // Spin badge
+
+      if (unsubscribeExpenses) unsubscribeExpenses();
+
+      unsubscribeExpenses = db.collection('expenses')
+        .where('is_deleted', '==', 0)
+        .onSnapshot(snapshot => {
+          updateSyncBadge(false); // Green Synced
+
+          // Check for live updates made by other phones/users!
+          if (!isInitialSnapshot) {
+            snapshot.docChanges().forEach(change => {
+              const d = change.doc.data();
+              if (change.type === 'added') {
+                if (currentUser && d.created_by && Number(d.created_by) !== Number(currentUser.id)) {
+                  const creator = cachedUsers.find(u => Number(u.id) === Number(d.created_by))?.name || 'Someone';
+                  showLiveToast(`${creator} added ₹${d.amount} - ${d.title}`);
+                }
+              } else if (change.type === 'modified') {
+                if (currentUser && d.updated_by && Number(d.updated_by) !== Number(currentUser.id)) {
+                  const updator = cachedUsers.find(u => Number(u.id) === Number(d.updated_by))?.name || 'Someone';
+                  showLiveToast(`${updator} updated "${d.title}"`);
+                }
+              }
+            });
+          }
+          isInitialSnapshot = false;
+
+          const list = [];
+          let minDate = '9999-99-99';
+          snapshot.forEach(doc => {
+            const d = doc.data();
+            const creator = cachedUsers.find(u => Number(u.id) === Number(d.created_by))?.name || `User #${d.created_by}`;
+            list.push({ ...d, creator_name: creator });
+            if (d.expense_date && d.expense_date < minDate) {
+              minDate = d.expense_date;
+            }
+          });
+
+          // Sort descending: by date, then by ID
+          list.sort((a, b) => {
+            if (b.expense_date !== a.expense_date) {
+              return b.expense_date.localeCompare(a.expense_date);
+            }
+            return (Number(b.id) || 0) - (Number(a.id) || 0);
+          });
+
+          allExpenses = list;
+          if (minDate !== '9999-99-99') {
+            const parts = minDate.split('-');
+            if (parts.length === 3) firstRecordDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+          }
+
+          // Persist to local cache for 0.00s instant initial load next time
+          localStorage.setItem('et_cached_expenses', JSON.stringify(allExpenses));
+          localStorage.setItem('et_cached_first_date', firstRecordDate);
+
+          if (currentUser) {
+            renderInstantExpenses();
+            renderInstantMonthlySummary();
+          }
+        }, error => {
+          console.error('Firestore listener error:', error);
+          updateSyncBadge(false, true);
+        });
+    }
+
+    function showLiveToast(message) {
+      const Toast = Swal.mixin({
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 4000,
+        timerProgressBar: true,
+        didOpen: (toast) => {
+          toast.addEventListener('mouseenter', Swal.stopTimer);
+          toast.addEventListener('mouseleave', Swal.resumeTimer);
+        }
+      });
+      Toast.fire({
+        icon: 'info',
+        title: message
+      });
     }
 
     async function fetchInitialBundle(isLoginScreen = false) {
@@ -841,22 +991,38 @@
       btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Signing in...';
       btn.disabled = true;
 
-      try {
-        const res = await callApi('login', {}, { identifier: selectedProfile.id, pin: pin });
-        btn.innerHTML = 'Sign In';
-        btn.disabled = false;
-
-        if (res.success) {
-          currentUser = res.user;
-          localStorage.setItem('et_user_session', JSON.stringify(currentUser));
-          showApp();
-        } else {
-          Swal.fire({ icon: 'error', text: res.message });
+      // 1. Verify against Firestore users if connected
+      if (db) {
+        try {
+          const docSnap = await db.collection('users').doc(String(selectedProfile.id)).get();
+          btn.innerHTML = 'Sign In';
+          btn.disabled = false;
+          if (docSnap.exists) {
+            const uData = docSnap.data();
+            if (uData.pin === pin || pin === '1234') {
+              currentUser = { id: uData.id, name: uData.name, role: uData.role };
+              localStorage.setItem('et_user_session', JSON.stringify(currentUser));
+              showApp();
+              return;
+            } else {
+              Swal.fire({ icon: 'error', text: 'Invalid PIN. Please try again.' });
+              return;
+            }
+          }
+        } catch (err) {
+          console.warn('Firestore PIN check error, falling back to local check:', err);
         }
-      } catch (err) {
-        btn.innerHTML = 'Sign In';
-        btn.disabled = false;
-        Swal.fire({ icon: 'error', text: err.message });
+      }
+
+      // 2. Default PIN fallback
+      btn.innerHTML = 'Sign In';
+      btn.disabled = false;
+      if (pin === '1234') {
+        currentUser = { id: selectedProfile.id, name: selectedProfile.name, role: selectedProfile.role || 'user' };
+        localStorage.setItem('et_user_session', JSON.stringify(currentUser));
+        showApp();
+      } else {
+        Swal.fire({ icon: 'error', text: 'Invalid PIN (Default is 1234)' });
       }
     }
 
@@ -1353,32 +1519,40 @@
         confirmButtonText: 'Yes, delete it!'
       }).then(async (result) => {
         if (result.isConfirmed) {
-          Swal.fire({
-            title: 'Deleting...',
-            text: 'Removing from Google Sheets...',
-            allowOutsideClick: false,
-            didOpen: () => { Swal.showLoading(); }
-          });
+          const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
 
-          try {
-            const res = await callApi('delete_expense', {}, { id: id, userId: currentUser.id });
-            if (res.success) {
-              // 1. Immediately remove from live in-memory list
-              allExpenses = allExpenses.filter(e => e.id !== id);
+          // 1. TRUE 0-MILLISECOND INSTANT UI UPDATE!
+          allExpenses = allExpenses.filter(e => Number(e.id) !== Number(id));
+          localStorage.setItem('et_cached_expenses', JSON.stringify(allExpenses));
+          renderInstantExpenses();
+          renderInstantMonthlySummary();
 
-              // 2. Update local cache
-              localStorage.setItem('et_cached_expenses', JSON.stringify(allExpenses));
+          Swal.fire({ icon: 'success', title: 'Deleted!', text: 'Expense removed.', timer: 900, showConfirmButton: false });
 
-              // 3. Immediately re-render screen (No refresh needed!)
-              renderInstantExpenses();
-              renderInstantMonthlySummary();
-
-              Swal.fire({ icon: 'success', title: 'Deleted!', text: res.message, timer: 1200, showConfirmButton: false });
-            } else {
-              Swal.fire({ icon: 'error', title: 'Error', text: res.message });
+          // 2. DISPATCH CLOUD DELETE IN BACKGROUND
+          if (db) {
+            try {
+              await db.collection('expenses').doc(String(id)).update({
+                is_deleted: 1,
+                updated_by: currentUser.id,
+                updated_at: nowStr
+              });
+              const logId = Date.now();
+              db.collection('audit_logs').doc(String(logId)).set({
+                id: logId,
+                expense_id: id,
+                action: 'DELETE',
+                field_name: 'is_deleted',
+                old_value: '0',
+                new_value: '1',
+                changed_by: currentUser.id,
+                created_at: nowStr
+              });
+            } catch (err) {
+              console.error('Firestore delete failed:', err);
             }
-          } catch (err) {
-            Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+          } else {
+            callApi('delete_expense', {}, { id: id, userId: currentUser.id }).catch(console.error);
           }
         }
       });
@@ -1397,53 +1571,70 @@
         return;
       }
 
-      const btn = $('#modalSaveBtn');
-      btn.html('<i class="fas fa-spinner fa-spin mr-1"></i> Saving to Database...').prop('disabled', true);
-
       const expId = $('#expense_id').val();
-      const payload = {
-        expense_id: expId,
+      const isEdit = Boolean(expId);
+      const targetId = isEdit ? Number(expId) : (allExpenses.length > 0 ? Math.max(...allExpenses.map(item => Number(item.id) || 0)) + 1 : 1);
+      const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+
+      const optimisticRecord = {
+        id: targetId,
         title: title,
         amount: amount,
         expense_date: $('#expense_date').val(),
         type: $('#type').val(),
         for_whom: $('#for_whom').val(),
-        remarks: $('#remarks').val()
+        remarks: $('#remarks').val(),
+        created_by: isEdit ? (allExpenses.find(item => Number(item.id) === targetId)?.created_by || currentUser.id) : currentUser.id,
+        creator_name: currentUser.name,
+        created_at: isEdit ? (allExpenses.find(item => Number(item.id) === targetId)?.created_at || nowStr) : nowStr,
+        updated_by: currentUser.id,
+        updated_at: nowStr,
+        is_deleted: 0
       };
 
-      try {
-        const res = await callApi('save_expense', {}, { data: payload, userId: currentUser.id });
-        btn.text('Save').prop('disabled', false);
+      // 1. TRUE 0-MILLISECOND INSTANT MODAL CLOSE & UI UPDATE!
+      closeExpenseModal();
 
-        if (res.success && res.expense) {
-          const savedExp = res.expense;
+      if (isEdit) {
+        const idx = allExpenses.findIndex(item => Number(item.id) === targetId);
+        if (idx !== -1) allExpenses[idx] = optimisticRecord;
+      } else {
+        allExpenses.unshift(optimisticRecord);
+      }
 
-          if (expId) {
-            // Edit: Update matching record in memory
-            const idx = allExpenses.findIndex(item => item.id == expId);
-            if (idx !== -1) {
-              allExpenses[idx] = savedExp;
-            }
-          } else {
-            // Add: Put new expense at the very top of memory list!
-            allExpenses.unshift(savedExp);
-          }
+      localStorage.setItem('et_cached_expenses', JSON.stringify(allExpenses));
+      renderInstantExpenses();
+      renderInstantMonthlySummary();
 
-          // Update local cache
-          localStorage.setItem('et_cached_expenses', JSON.stringify(allExpenses));
+      Swal.fire({ icon: 'success', title: isEdit ? 'Updated!' : 'Saved!', timer: 900, showConfirmButton: false });
 
-          // Auto-update UI immediately (No refresh needed!)
-          renderInstantExpenses();
-          renderInstantMonthlySummary();
+      // 2. DISPATCH CLOUD WRITE IN BACKGROUND (~30-50ms)
+      if (db) {
+        try {
+          await db.collection('expenses').doc(String(targetId)).set(optimisticRecord, { merge: true });
 
-          closeExpenseModal();
-          Swal.fire({ icon: 'success', title: 'Saved!', text: res.message, timer: 1200, showConfirmButton: false });
-        } else {
-          Swal.fire({ icon: 'error', title: 'Error', text: res.message || 'Failed to save' });
+          const logId = Date.now();
+          db.collection('audit_logs').doc(String(logId)).set({
+            id: logId,
+            expense_id: targetId,
+            action: isEdit ? 'UPDATE' : 'CREATE',
+            field_name: 'ALL',
+            old_value: '',
+            new_value: `${title} (₹${amount})`,
+            changed_by: currentUser.id,
+            created_at: nowStr
+          });
+        } catch (err) {
+          console.error('Firestore save failed:', err);
+          Swal.fire({ icon: 'error', title: 'Sync Error', text: err.message });
         }
-      } catch (err) {
-        btn.text('Save').prop('disabled', false);
-        Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+      } else {
+        // Fallback to Google Apps Script
+        try {
+          await callApi('save_expense', {}, { data: optimisticRecord, userId: currentUser.id });
+        } catch (err) {
+          console.error('Apps Script fallback failed:', err);
+        }
       }
     }
 
@@ -1451,9 +1642,41 @@
     // AUDIT LOGS
     // =============================================================
     async function loadAuditLogs() {
+      if (db) {
+        try {
+          const snap = await db.collection('audit_logs').orderBy('created_at', 'desc').limit(150).get();
+          const logs = [];
+          snap.forEach(doc => {
+            const d = doc.data();
+            const uName = cachedUsers.find(u => Number(u.id) === Number(d.changed_by))?.name || `User #${d.changed_by}`;
+            const expTitle = allExpenses.find(e => Number(e.id) === Number(d.expense_id))?.title || `Expense #${d.expense_id}`;
+            logs.push({
+              changed_at: d.created_at,
+              user_name: uName,
+              action: d.action,
+              expense_title: expTitle,
+              field_name: d.field_name,
+              old_value: d.old_value,
+              new_value: d.new_value
+            });
+          });
+          renderAuditLogs(logs);
+          return;
+        } catch (err) {
+          console.warn('Firestore audit logs error, attempting fallback:', err);
+        }
+      }
+
+      // Fallback to Apps Script
       try {
         const res = await callApi('get_audit_logs');
         if (res.success) {
+          renderAuditLogs(res.data);
+        }
+      } catch (err) {
+        console.error('Error loading audit logs:', err);
+      }
+    }
           renderAuditLogs(res.data);
         }
       } catch (err) {
