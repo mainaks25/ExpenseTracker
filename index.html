@@ -64,7 +64,7 @@
 <body class="bg-gray-50 text-gray-800">
 
   <!-- ============================================================== -->
-  <!-- LOGIN VIEW                                                     -->
+  <!-- LOGIN VIEW (Pre-populated for 0 ms Instant Display)            -->
   <!-- ============================================================== -->
   <div id="loginView" class="min-h-screen flex items-center justify-center p-4 bg-gray-50">
     <div class="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-lg border border-gray-100">
@@ -74,10 +74,25 @@
         <p class="mt-2 text-sm text-gray-600">Select your profile to continue</p>
       </div>
 
+      <!-- Pre-populated Profile Buttons -->
       <div id="profileButtons" class="space-y-3 mt-6">
-        <div class="text-center py-4 text-gray-400 text-sm">
-          <i class="fas fa-spinner fa-spin mr-2"></i> Loading members...
-        </div>
+        <button onclick="pickProfile(1, 'Mainak Saha')" 
+                class="w-full flex items-center justify-between p-3.5 border border-gray-200 rounded-lg hover:border-indigo-500 hover:bg-indigo-50/50 transition">
+          <div class="flex items-center space-x-3">
+            <div class="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center text-sm">M</div>
+            <span class="font-medium text-gray-900">Mainak Saha</span>
+          </div>
+          <span class="text-xs uppercase tracking-wider text-gray-400 font-semibold">Admin</span>
+        </button>
+
+        <button onclick="pickProfile(3, 'Samanwita Laha')" 
+                class="w-full flex items-center justify-between p-3.5 border border-gray-200 rounded-lg hover:border-indigo-500 hover:bg-indigo-50/50 transition">
+          <div class="flex items-center space-x-3">
+            <div class="w-9 h-9 rounded-full bg-pink-100 text-pink-700 font-bold flex items-center justify-center text-sm">S</div>
+            <span class="font-medium text-gray-900">Samanwita Laha</span>
+          </div>
+          <span class="text-xs uppercase tracking-wider text-gray-400 font-semibold">User</span>
+        </button>
       </div>
 
       <div id="pinBox" class="hidden mt-6 pt-4 border-t border-gray-100">
@@ -101,7 +116,7 @@
   <!-- ============================================================== -->
   <div id="appView" class="hidden flex-1 flex flex-col min-h-screen">
 
-    <!-- Top Navigation Bar (Identical to existing site) -->
+    <!-- Top Navigation Bar -->
     <nav class="bg-white shadow-md w-full sticky top-0 z-40">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between h-16">
@@ -121,8 +136,13 @@
             </div>
           </div>
 
-          <div class="flex items-center">
-            <div class="hidden md:flex items-center ml-4">
+          <div class="flex items-center space-x-3">
+            <!-- Subtle Sync Status Badge -->
+            <span id="syncStatusBadge" class="hidden sm:inline-flex items-center text-xs text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-full">
+              <i class="fas fa-sync-alt fa-spin mr-1.5 text-xs text-indigo-500"></i>Syncing...
+            </span>
+
+            <div class="hidden md:flex items-center ml-2">
               <span class="text-sm text-gray-600 mr-4">Welcome, <strong id="topUserName">User</strong></span>
               <button onclick="handleLogout()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium transition duration-150 ease-in-out">Logout</button>
             </div>
@@ -147,11 +167,14 @@
           <button onclick="switchTab('users')" id="mobileNavUsers" class="hidden block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-500 hover:bg-gray-50">Users</button>
           
           <div class="pt-4 pb-3 border-t border-gray-200">
-            <div class="flex items-center px-3">
+            <div class="flex items-center justify-between px-3">
               <div>
                 <div class="text-base font-medium text-gray-800" id="mobileUserName">User</div>
                 <div class="text-sm font-medium text-gray-500" id="mobileUserRole">Role</div>
               </div>
+              <span id="mobileSyncBadge" class="text-xs text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+                <i class="fas fa-sync-alt fa-spin text-xs"></i>
+              </span>
             </div>
             <div class="mt-3 px-2">
               <button onclick="handleLogout()" class="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-red-600 hover:bg-red-50">Logout</button>
@@ -187,18 +210,18 @@
             </div>
           </div>
 
-          <!-- Monthly Summary Section (Identical to existing site) -->
+          <!-- Monthly Summary Section -->
           <div class="mt-8 bg-white shadow rounded-lg p-4 sm:p-6">
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
               <h2 class="text-lg font-medium text-gray-900">Monthly Summary</h2>
               <div class="flex items-center gap-2">
-                <select id="summaryMonth" onchange="loadMonthlySummary()" class="flex-1 sm:flex-none rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm border py-2 px-3">
+                <select id="summaryMonth" onchange="renderInstantMonthlySummary()" class="flex-1 sm:flex-none rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm border py-2 px-3">
                   <option value="1">January</option><option value="2">February</option><option value="3">March</option>
                   <option value="4">April</option><option value="5">May</option><option value="6">June</option>
                   <option value="7">July</option><option value="8">August</option><option value="9">September</option>
                   <option value="10">October</option><option value="11">November</option><option value="12">December</option>
                 </select>
-                <select id="summaryYear" onchange="loadMonthlySummary()" class="flex-1 sm:flex-none rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm border py-2 px-3">
+                <select id="summaryYear" onchange="renderInstantMonthlySummary()" class="flex-1 sm:flex-none rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm border py-2 px-3">
                   <!-- Filled via JS -->
                 </select>
               </div>
@@ -222,9 +245,7 @@
                             <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">% Share</th>
                           </tr>
                         </thead>
-                        <tbody id="categorySummaryTableBody" class="divide-y divide-gray-200">
-                          <!-- Populated via JS -->
-                        </tbody>
+                        <tbody id="categorySummaryTableBody" class="divide-y divide-gray-200"></tbody>
                       </table>
                     </div>
                   </div>
@@ -246,9 +267,7 @@
                             <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">% Share</th>
                           </tr>
                         </thead>
-                        <tbody id="userSummaryTableBody" class="divide-y divide-gray-200">
-                          <!-- Populated via JS -->
-                        </tbody>
+                        <tbody id="userSummaryTableBody" class="divide-y divide-gray-200"></tbody>
                       </table>
                     </div>
                   </div>
@@ -266,50 +285,39 @@
             </div>
           </div>
 
-          <!-- Filters & Search Bar (Identical to existing site) -->
+          <!-- Instant Search & Filters Bar -->
           <div class="mt-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 flex-wrap">
               <div class="relative flex-1 sm:flex-none sm:w-64">
-                <input type="text" id="searchInput" oninput="debounceExpenses()" placeholder="Search expenses..." 
+                <input type="text" id="searchInput" oninput="renderInstantExpenses()" placeholder="Search expenses..." 
                        class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm pl-10 pr-4 py-2 border">
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <i class="fas fa-search text-gray-400"></i>
                 </div>
               </div>
 
-              <select id="categoryFilter" onchange="loadExpenses()" class="block w-full sm:w-auto rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border py-2 px-3">
+              <select id="categoryFilter" onchange="renderInstantExpenses()" class="block w-full sm:w-auto rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border py-2 px-3">
                 <option value="">All Categories</option>
-                <option value="Grocery">Grocery</option>
-                <option value="Food">Food</option>
-                <option value="Shopping">Shopping</option>
-                <option value="Gift">Gift</option>
-                <option value="Transportation">Transportation</option>
-                <option value="Entertainment">Entertainment</option>
-                <option value="Medical">Medical</option>
-                <option value="Maintenance">Maintenance</option>
-                <option value="Self Improvement">Self Improvement</option>
-                <option value="Business">Business</option>
-                <option value="Others">Others</option>
+                <option value="Grocery">Grocery</option><option value="Food">Food</option><option value="Shopping">Shopping</option>
+                <option value="Gift">Gift</option><option value="Transportation">Transportation</option><option value="Entertainment">Entertainment</option>
+                <option value="Medical">Medical</option><option value="Maintenance">Maintenance</option><option value="Self Improvement">Self Improvement</option>
+                <option value="Business">Business</option><option value="Others">Others</option>
               </select>
 
-              <select id="userFilter" onchange="loadExpenses()" class="block w-full sm:w-auto rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border py-2 px-3">
+              <select id="userFilter" onchange="renderInstantExpenses()" class="block w-full sm:w-auto rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border py-2 px-3">
                 <option value="">All Users</option>
-                <!-- Populated via JS -->
               </select>
 
-              <select id="forWhomFilter" onchange="loadExpenses()" class="block w-full sm:w-auto rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border py-2 px-3">
+              <select id="forWhomFilter" onchange="renderInstantExpenses()" class="block w-full sm:w-auto rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border py-2 px-3">
                 <option value="">All Spent On</option>
-                <option value="Family">Family</option>
-                <option value="Samanwita">Samanwita</option>
-                <option value="Mainak">Mainak</option>
-                <option value="Tashi">Tashi</option>
-                <option value="Others">Others</option>
+                <option value="Family">Family</option><option value="Samanwita">Samanwita</option><option value="Mainak">Mainak</option>
+                <option value="Tashi">Tashi</option><option value="Others">Others</option>
               </select>
             </div>
 
             <div class="flex items-center gap-2">
               <span class="text-sm text-gray-500 whitespace-nowrap">Sort by:</span>
-              <select id="sortBy" onchange="loadExpenses()" class="block w-full sm:w-auto rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border py-2 px-3">
+              <select id="sortBy" onchange="renderInstantExpenses()" class="block w-full sm:w-auto rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border py-2 px-3">
                 <option value="expense_date-DESC">Date (Newest)</option>
                 <option value="expense_date-ASC">Date (Oldest)</option>
                 <option value="amount-DESC">Amount (High to Low)</option>
@@ -321,18 +329,17 @@
 
           <!-- Expenses Table / Cards Container -->
           <div class="mt-8">
-            <!-- Desktop Table View -->
             <div class="hidden md:block overflow-x-auto shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
               <table class="min-w-full divide-y divide-gray-300">
                 <thead class="bg-gray-50">
                   <tr>
-                    <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">Date</th>
-                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Title</th>
-                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Category</th>
-                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">For</th>
-                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Amount</th>
-                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Created By</th>
-                    <th scope="col" class="relative py-3.5 pl-3 pr-4 sm:pr-6"><span class="sr-only">Actions</span></th>
+                    <th class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">Date</th>
+                    <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Title</th>
+                    <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Category</th>
+                    <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">For</th>
+                    <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Amount</th>
+                    <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Created By</th>
+                    <th class="relative py-3.5 pl-3 pr-4 sm:pr-6"><span class="sr-only">Actions</span></th>
                   </tr>
                 </thead>
                 <tbody id="expenseTableBody" class="divide-y divide-gray-200 bg-white">
@@ -341,7 +348,6 @@
               </table>
             </div>
 
-            <!-- Mobile Card View -->
             <div id="expenseMobileCards" class="grid grid-cols-1 gap-4 md:hidden">
               <div class="text-center py-8 text-gray-400 text-sm"><i class="fas fa-spinner fa-spin mr-2"></i>Loading expenses...</div>
             </div>
@@ -357,7 +363,6 @@
         <div>
           <h1 class="text-2xl font-semibold text-gray-900">Dashboard</h1>
           
-          <!-- Stats Grid -->
           <div class="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-3">
             <div class="bg-white overflow-hidden shadow rounded-lg">
               <div class="p-5">
@@ -408,21 +413,16 @@
             </div>
           </div>
 
-          <!-- Recent Expenses & Category Breakdown -->
           <div class="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-2">
-            <!-- Recent Expenses -->
             <div class="bg-white shadow rounded-lg p-6">
               <h2 class="text-lg font-medium text-gray-900 mb-4">Recent Expenses</h2>
               <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200">
-                  <tbody id="dashRecentTable" class="divide-y divide-gray-200 text-sm">
-                    <!-- Populated via JS -->
-                  </tbody>
+                  <tbody id="dashRecentTable" class="divide-y divide-gray-200 text-sm"></tbody>
                 </table>
               </div>
             </div>
 
-            <!-- Category Breakdown Chart -->
             <div class="bg-white shadow rounded-lg p-6">
               <h2 class="text-lg font-medium text-gray-900 mb-4">Category Breakdown (This Month)</h2>
               <div class="h-64 flex items-center justify-center">
@@ -454,7 +454,7 @@
           <!-- Filters Section -->
           <div class="bg-white shadow rounded-lg p-4 sm:p-6 mb-8">
             <h2 class="text-lg font-medium text-gray-900 mb-6">Filter Analysis</h2>
-            <form id="analysisFilterForm" onsubmit="handleAnalysisSubmit(event)" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <form id="analysisFilterForm" onsubmit="renderInstantAnalysis(event)" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Category</label>
                 <select id="analysisCat" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border py-2 px-3">
@@ -469,11 +469,8 @@
                 <label class="block text-sm font-medium text-gray-700 mb-1">Spent On</label>
                 <select id="analysisWhom" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border py-2 px-3">
                   <option value="">All Spent On</option>
-                  <option value="Family">Family</option>
-                  <option value="Samanwita">Samanwita</option>
-                  <option value="Mainak">Mainak</option>
-                  <option value="Tashi">Tashi</option>
-                  <option value="Others">Others</option>
+                  <option value="Family">Family</option><option value="Samanwita">Samanwita</option><option value="Mainak">Mainak</option>
+                  <option value="Tashi">Tashi</option><option value="Others">Others</option>
                 </select>
               </div>
               <div>
@@ -540,7 +537,6 @@
           <p class="mt-2 text-sm text-gray-700">Full history of all actions performed on the expense tracker.</p>
 
           <div class="mt-8">
-            <!-- Desktop Table View -->
             <div class="hidden md:block overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
               <table class="min-w-full divide-y divide-gray-300">
                 <thead class="bg-gray-50">
@@ -553,14 +549,13 @@
                   </tr>
                 </thead>
                 <tbody id="auditTableBody" class="divide-y divide-gray-200 bg-white">
-                  <!-- Populated via JS -->
+                  <tr><td colspan="5" class="px-6 py-8 text-center text-sm text-gray-400"><i class="fas fa-spinner fa-spin mr-2"></i>Loading logs...</td></tr>
                 </tbody>
               </table>
             </div>
 
-            <!-- Mobile Card View -->
             <div id="auditMobileCards" class="grid grid-cols-1 gap-4 md:hidden">
-              <!-- Populated via JS -->
+              <div class="text-center py-8 text-gray-400 text-sm"><i class="fas fa-spinner fa-spin mr-2"></i>Loading logs...</div>
             </div>
           </div>
         </div>
@@ -571,7 +566,7 @@
 
 
   <!-- ============================================================== -->
-  <!-- EXPENSE ADD / EDIT MODAL (Exact layout of expense_modal.php)   -->
+  <!-- EXPENSE ADD / EDIT MODAL                                       -->
   <!-- ============================================================== -->
   <div id="expenseModal" class="hidden fixed z-[100] inset-0 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
     <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
@@ -603,27 +598,17 @@
                   <div>
                     <label for="type" class="block text-sm font-medium text-gray-700">Category</label>
                     <select id="type" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border py-2 px-3">
-                      <option value="Grocery">Grocery</option>
-                      <option value="Food">Food</option>
-                      <option value="Shopping">Shopping</option>
-                      <option value="Gift">Gift</option>
-                      <option value="Transportation">Transportation</option>
-                      <option value="Entertainment">Entertainment</option>
-                      <option value="Medical">Medical</option>
-                      <option value="Maintenance">Maintenance</option>
-                      <option value="Self Improvement">Self Improvement</option>
-                      <option value="Business">Business</option>
-                      <option value="Others">Others</option>
+                      <option value="Grocery">Grocery</option><option value="Food">Food</option><option value="Shopping">Shopping</option>
+                      <option value="Gift">Gift</option><option value="Transportation">Transportation</option><option value="Entertainment">Entertainment</option>
+                      <option value="Medical">Medical</option><option value="Maintenance">Maintenance</option><option value="Self Improvement">Self Improvement</option>
+                      <option value="Business">Business</option><option value="Others">Others</option>
                     </select>
                   </div>
                   <div>
                     <label for="for_whom" class="block text-sm font-medium text-gray-700">For</label>
                     <select id="for_whom" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border py-2 px-3">
-                      <option value="Family" selected>Family</option>
-                      <option value="Samanwita">Samanwita</option>
-                      <option value="Mainak">Mainak</option>
-                      <option value="Tashi">Tashi</option>
-                      <option value="Others">Others</option>
+                      <option value="Family" selected>Family</option><option value="Samanwita">Samanwita</option><option value="Mainak">Mainak</option>
+                      <option value="Tashi">Tashi</option><option value="Others">Others</option>
                     </select>
                   </div>
                 </div>
@@ -649,26 +634,27 @@
 
 
   <!-- ============================================================== -->
-  <!-- JAVASCRIPT LOGIC (REST API Client)                             -->
+  <!-- HIGH-SPEED CLIENT-SIDE JAVASCRIPT ENGINE                       -->
   <!-- ============================================================== -->
   <script>
-    // -------------------------------------------------------------
-    // CONFIGURE YOUR APPS SCRIPT WEB APP URL HERE:
-    // -------------------------------------------------------------
     const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxPA5Kv4ysmn6tS0a27jQ29BPSdtjUel68-sWWVNxd7IbUiXrFqokNFFOKQaDXiOTLy3A/exec';
 
+    // In-Memory state for 0-millisecond instant UI updates
+    let allExpenses = [];
+    let cachedUsers = [
+      { id: 1, name: 'Mainak Saha', role: 'admin' },
+      { id: 3, name: 'Samanwita Laha', role: 'user' }
+    ];
+    let firstRecordDate = 'N/A';
     let currentUser = null;
-    let cachedUsers = [];
-    let loadedExpenses = [];
     let selectedProfile = null;
+
     let summaryCatChart = null;
     let summaryUserChart = null;
     let dashCatChart = null;
     let analysisWhomChartInstance = null;
     let analysisCatChartInstance = null;
-    let debounceTimeout = null;
 
-    // Universal API Caller: skips CORS OPTIONS preflight by using text/plain
     async function callApi(action, params = {}, postPayload = null) {
       if (postPayload) {
         const bodyObj = { action, ...postPayload };
@@ -706,7 +692,29 @@
       document.getElementById('summaryMonth').value = new Date().getMonth() + 1;
     }
 
+    // -------------------------------------------------------------
+    // STALE-WHILE-REVALIDATE INITIALIZATION (0.05s Instant Startup)
+    // -------------------------------------------------------------
     function checkSession() {
+      // 1. Try restoring in-memory state instantly from localStorage
+      const cachedExpStr = localStorage.getItem('et_cached_expenses');
+      const cachedFirst = localStorage.getItem('et_cached_first_date');
+      const cachedUsersStr = localStorage.getItem('et_cached_users');
+
+      if (cachedExpStr) {
+        try {
+          allExpenses = JSON.parse(cachedExpStr);
+        } catch (e) {}
+      }
+      if (cachedFirst) firstRecordDate = cachedFirst;
+      if (cachedUsersStr) {
+        try {
+          cachedUsers = JSON.parse(cachedUsersStr);
+          populateUserFilter(cachedUsers);
+        } catch (e) {}
+      }
+
+      // Check user session
       const saved = localStorage.getItem('et_user_session');
       if (saved) {
         try {
@@ -715,19 +723,71 @@
           return;
         } catch (e) {}
       }
-      fetchUsersForLogin();
+
+      // Trigger background sync to verify fresh database state
+      fetchInitialBundle(true);
     }
 
-    async function fetchUsersForLogin() {
+    async function fetchInitialBundle(isLoginScreen = false) {
+      updateSyncBadge(true); // Spin sync badge
+
       try {
-        const res = await callApi('get_users');
+        const res = await callApi('get_initial_bundle');
         if (res.success) {
-          cachedUsers = res.data;
-          renderProfileButtons(cachedUsers);
+          allExpenses = res.expenses || [];
+          cachedUsers = res.users || cachedUsers;
+          firstRecordDate = res.first_date || firstRecordDate;
+
+          // Save to local cache for instant 0.05s load next time!
+          localStorage.setItem('et_cached_expenses', JSON.stringify(allExpenses));
+          localStorage.setItem('et_cached_users', JSON.stringify(cachedUsers));
+          localStorage.setItem('et_cached_first_date', firstRecordDate);
+
           populateUserFilter(cachedUsers);
+
+          if (isLoginScreen) {
+            renderProfileButtons(cachedUsers);
+          } else if (currentUser) {
+            renderInstantExpenses();
+            renderInstantMonthlySummary();
+          }
+
+          updateSyncBadge(false); // Green checkmark
         }
       } catch (err) {
-        document.getElementById('profileButtons').innerHTML = `<p class="text-sm text-red-500">Failed to connect: ${err.message}</p>`;
+        console.error('Background sync failed:', err);
+        updateSyncBadge(false, true);
+      }
+    }
+
+    function updateSyncBadge(isSyncing, hasError = false) {
+      const desktopBadge = document.getElementById('syncStatusBadge');
+      const mobileBadge = document.getElementById('mobileSyncBadge');
+
+      if (isSyncing) {
+        if (desktopBadge) {
+          desktopBadge.className = 'hidden sm:inline-flex items-center text-xs text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-full';
+          desktopBadge.innerHTML = '<i class="fas fa-sync-alt fa-spin mr-1.5 text-xs text-indigo-500"></i>Syncing...';
+        }
+        if (mobileBadge) {
+          mobileBadge.innerHTML = '<i class="fas fa-sync-alt fa-spin text-xs"></i>';
+        }
+      } else if (hasError) {
+        if (desktopBadge) {
+          desktopBadge.className = 'hidden sm:inline-flex items-center text-xs text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full';
+          desktopBadge.innerHTML = '<i class="fas fa-exclamation-circle mr-1.5 text-xs text-amber-500"></i>Offline Cache';
+        }
+        if (mobileBadge) {
+          mobileBadge.innerHTML = '<i class="fas fa-exclamation-circle text-amber-500 text-xs"></i>';
+        }
+      } else {
+        if (desktopBadge) {
+          desktopBadge.className = 'hidden sm:inline-flex items-center text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full';
+          desktopBadge.innerHTML = '<i class="fas fa-check-circle mr-1.5 text-xs text-emerald-500"></i>Synced';
+        }
+        if (mobileBadge) {
+          mobileBadge.innerHTML = '<i class="fas fa-check-circle text-emerald-500 text-xs"></i>';
+        }
       }
     }
 
@@ -739,12 +799,14 @@
         return;
       }
       users.forEach(u => {
+        const initial = u.name.charAt(0);
+        const color = u.role === 'admin' ? 'bg-indigo-100 text-indigo-700' : 'bg-pink-100 text-pink-700';
         box.innerHTML += `
           <button onclick="pickProfile(${u.id}, '${u.name}')" 
                   class="w-full flex items-center justify-between p-3.5 border border-gray-200 rounded-lg hover:border-indigo-500 hover:bg-indigo-50/50 transition">
             <div class="flex items-center space-x-3">
-              <div class="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center text-sm">
-                ${u.name.charAt(0)}
+              <div class="w-9 h-9 rounded-full ${color} font-bold flex items-center justify-center text-sm">
+                ${initial}
               </div>
               <span class="font-medium text-gray-900">${u.name}</span>
             </div>
@@ -814,7 +876,7 @@
           document.getElementById('appView').classList.add('hidden');
           document.getElementById('loginView').classList.remove('hidden');
           cancelPin();
-          fetchUsersForLogin();
+          renderProfileButtons(cachedUsers);
         }
       });
     }
@@ -832,6 +894,13 @@
         document.getElementById('mobileNavUsers').classList.remove('hidden');
       }
 
+      // Render instantly from local cache!
+      renderInstantExpenses();
+      renderInstantMonthlySummary();
+
+      // Trigger silent background update check
+      fetchInitialBundle(false);
+
       switchTab('expenses');
     }
 
@@ -845,12 +914,12 @@
       $('#mobileMenu').addClass('hidden');
 
       if (tabId === 'expenses') {
-        loadMonthlySummary();
-        loadExpenses();
+        renderInstantMonthlySummary();
+        renderInstantExpenses();
       } else if (tabId === 'dashboard') {
-        loadDashboardStats();
+        renderInstantDashboard();
       } else if (tabId === 'analysis') {
-        loadAnalysis();
+        renderInstantAnalysis();
       } else if (tabId === 'audit') {
         loadAuditLogs();
       }
@@ -862,148 +931,61 @@
 
     function populateUserFilter(users) {
       const uSelect = document.getElementById('userFilter');
+      if (!uSelect) return;
       uSelect.innerHTML = '<option value="">All Users</option>';
       users.forEach(u => {
         uSelect.innerHTML += `<option value="${u.id}">${u.name}</option>`;
       });
     }
 
-    // -------------------------------------------------------------
-    // EXPENSES & MONTHLY SUMMARY
-    // -------------------------------------------------------------
-
-    async function loadMonthlySummary() {
-      const month = $('#summaryMonth').val();
-      const year = $('#summaryYear').val();
-
-      try {
-        const res = await callApi('get_summary', { month, year });
-        if (res.success) {
-          if (res.category_summary.length === 0 && res.user_summary.length === 0) {
-            $('#summaryContent').addClass('hidden');
-            $('#summaryNoData').removeClass('hidden');
-          } else {
-            $('#summaryContent').removeClass('hidden');
-            $('#summaryNoData').addClass('hidden');
-            renderSummaryChartsAndTables(res.category_summary, res.user_summary);
-          }
-          $('#summaryTotal').text(`Total Monthly Expenditure: ₹${parseFloat(res.total_expenditure).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`);
-        }
-      } catch (err) {
-        console.error('Error loading summary:', err);
-      }
-    }
-
-    function renderSummaryChartsAndTables(catData, userData) {
-      const colors = ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#8b5cf6', '#3b82f6', '#14b8a6', '#64748b'];
-
-      // Category Chart
-      const catLabels = catData.map(d => d.type);
-      const catTotals = catData.map(d => d.total);
-      const catSum = catTotals.reduce((a, b) => a + b, 0);
-
-      if (summaryCatChart) summaryCatChart.destroy();
-      const catCtx = document.getElementById('summaryCategoryChart').getContext('2d');
-      summaryCatChart = new Chart(catCtx, {
-        type: 'doughnut',
-        data: {
-          labels: catLabels,
-          datasets: [{ data: catTotals, backgroundColor: colors.slice(0, catLabels.length) }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } }
-        }
-      });
-
-      let catTableHtml = '';
-      catData.forEach(d => {
-        const pct = catSum > 0 ? ((d.total / catSum) * 100).toFixed(1) : 0;
-        catTableHtml += `
-          <tr>
-            <td class="px-3 py-2 text-sm text-gray-900 font-medium">${d.type}</td>
-            <td class="px-3 py-2 text-sm text-right text-gray-600 font-mono">₹${parseFloat(d.total).toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
-            <td class="px-3 py-2 text-sm text-right text-indigo-600 font-bold">${pct}%</td>
-          </tr>
-        `;
-      });
-      $('#categorySummaryTableBody').html(catTableHtml);
-
-      // User Chart
-      const userLabels = userData.map(d => d.name);
-      const userTotals = userData.map(d => d.total);
-      const userSum = userTotals.reduce((a, b) => a + b, 0);
-
-      if (summaryUserChart) summaryUserChart.destroy();
-      const userCtx = document.getElementById('summaryUserChart').getContext('2d');
-      summaryUserChart = new Chart(userCtx, {
-        type: 'doughnut',
-        data: {
-          labels: userLabels,
-          datasets: [{ data: userTotals, backgroundColor: ['#3b82f6', '#ec4899', '#f59e0b', '#10b981', '#8b5cf6'] }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } }
-        }
-      });
-
-      let userTableHtml = '';
-      userData.forEach(d => {
-        const pct = userSum > 0 ? ((d.total / userSum) * 100).toFixed(1) : 0;
-        userTableHtml += `
-          <tr>
-            <td class="px-3 py-2 text-sm text-gray-900 font-medium">${d.name}</td>
-            <td class="px-3 py-2 text-sm text-right text-gray-600 font-mono">₹${parseFloat(d.total).toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
-            <td class="px-3 py-2 text-sm text-right text-indigo-600 font-bold">${pct}%</td>
-          </tr>
-        `;
-      });
-      $('#userSummaryTableBody').html(userTableHtml);
-    }
-
-    async function loadExpenses() {
-      const search = $('#searchInput').val();
+    // =============================================================
+    // 0-MILLISECOND INSTANT IN-MEMORY EXPENSES FILTER & SEARCH
+    // =============================================================
+    function renderInstantExpenses() {
+      const search = $('#searchInput').val() ? $('#searchInput').val().toLowerCase().trim() : '';
       const cat = $('#categoryFilter').val();
       const user = $('#userFilter').val();
       const forWhom = $('#forWhomFilter').val();
       const sort = $('#sortBy').val();
 
-      try {
-        const res = await callApi('get_expenses', {
-          search, category: cat, user_id: user, for_whom: forWhom, sort
-        });
-        if (res.success) {
-          loadedExpenses = res.data;
-          renderExpensesList(loadedExpenses);
+      let filtered = allExpenses.filter(e => {
+        if (cat && e.type !== cat) return false;
+        if (forWhom && e.for_whom !== forWhom) return false;
+        if (user && Number(e.created_by) !== Number(user)) return false;
+        if (search) {
+          const t = (e.title || '').toLowerCase();
+          const r = (e.remarks || '').toLowerCase();
+          if (!t.includes(search) && !r.includes(search)) return false;
         }
-      } catch (err) {
-        console.error('Error loading expenses:', err);
-      }
-    }
+        return true;
+      });
 
-    function debounceExpenses() {
-      clearTimeout(debounceTimeout);
-      debounceTimeout = setTimeout(loadExpenses, 300);
-    }
+      const [sortField, sortOrder] = (sort || 'expense_date-DESC').split('-');
+      filtered.sort((a, b) => {
+        let cmp = 0;
+        if (sortField === 'expense_date') {
+          cmp = new Date(a.expense_date) - new Date(b.expense_date);
+        } else if (sortField === 'amount') {
+          cmp = a.amount - b.amount;
+        } else if (sortField === 'title') {
+          cmp = a.title.localeCompare(b.title);
+        }
+        return sortOrder === 'DESC' ? -cmp : cmp;
+      });
 
-    function renderExpensesList(list) {
       let tableHtml = '';
       let cardHtml = '';
 
-      if (list.length === 0) {
+      if (filtered.length === 0) {
         $('#expenseTableBody').html('<tr><td colspan="7" class="px-6 py-8 text-center text-sm text-gray-500">No expenses found</td></tr>');
         $('#expenseMobileCards').html('<div class="text-center py-8 text-gray-500 text-sm">No expenses found</div>');
         return;
       }
 
-      list.forEach(expense => {
+      filtered.forEach(expense => {
         const amtStr = parseFloat(expense.amount).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
         const dateFormatted = formatDisplayDate(expense.expense_date);
 
-        // Desktop Row (Identical to C:\xampp\htdocs\conenct\expensetracker\assets\js\app.js)
         tableHtml += `
           <tr>
             <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">${dateFormatted}</td>
@@ -1027,7 +1009,6 @@
           </tr>
         `;
 
-        // Mobile Card (Identical to C:\xampp\htdocs\conenct\expensetracker\assets\js\app.js)
         cardHtml += `
           <div class="bg-white shadow rounded-lg p-4 border-l-4 border-indigo-500 w-full overflow-hidden">
             <div class="flex justify-between items-start mb-2 gap-2">
@@ -1062,10 +1043,271 @@
       $('#expenseMobileCards').html(cardHtml);
     }
 
-    // -------------------------------------------------------------
-    // MODAL ADD / EDIT / DELETE
-    // -------------------------------------------------------------
+    // =============================================================
+    // 0-MILLISECOND INSTANT MONTHLY SUMMARY
+    // =============================================================
+    function renderInstantMonthlySummary() {
+      const month = Number($('#summaryMonth').val());
+      const year = Number($('#summaryYear').val());
 
+      let totalExp = 0;
+      const catMap = {};
+      const userMap = {};
+
+      allExpenses.forEach(e => {
+        const parts = e.expense_date.split('-');
+        if (parts.length === 3) {
+          const ey = parseInt(parts[0], 10);
+          const em = parseInt(parts[1], 10);
+          if (em === month && ey === year) {
+            totalExp += e.amount;
+            catMap[e.type] = (catMap[e.type] || 0) + e.amount;
+            userMap[e.for_whom] = (userMap[e.for_whom] || 0) + e.amount;
+          }
+        }
+      });
+
+      const catData = Object.keys(catMap).map(k => ({ type: k, total: catMap[k] })).sort((a, b) => b.total - a.total);
+      const userData = Object.keys(userMap).map(k => ({ name: k, total: userMap[k] })).sort((a, b) => b.total - a.total);
+
+      if (catData.length === 0 && userData.length === 0) {
+        $('#summaryContent').addClass('hidden');
+        $('#summaryNoData').removeClass('hidden');
+      } else {
+        $('#summaryContent').removeClass('hidden');
+        $('#summaryNoData').addClass('hidden');
+        renderSummaryChartsAndTables(catData, userData);
+      }
+      $('#summaryTotal').text(`Total Monthly Expenditure: ₹${parseFloat(totalExp).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`);
+    }
+
+    function renderSummaryChartsAndTables(catData, userData) {
+      const colors = ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#8b5cf6', '#3b82f6', '#14b8a6', '#64748b'];
+
+      const catLabels = catData.map(d => d.type);
+      const catTotals = catData.map(d => d.total);
+      const catSum = catTotals.reduce((a, b) => a + b, 0);
+
+      if (summaryCatChart) summaryCatChart.destroy();
+      const catCtx = document.getElementById('summaryCategoryChart').getContext('2d');
+      summaryCatChart = new Chart(catCtx, {
+        type: 'doughnut',
+        data: {
+          labels: catLabels,
+          datasets: [{ data: catTotals, backgroundColor: colors.slice(0, catLabels.length) }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } }
+        }
+      });
+
+      let catTableHtml = '';
+      catData.forEach(d => {
+        const pct = catSum > 0 ? ((d.total / catSum) * 100).toFixed(1) : 0;
+        catTableHtml += `
+          <tr>
+            <td class="px-3 py-2 text-sm text-gray-900 font-medium">${d.type}</td>
+            <td class="px-3 py-2 text-sm text-right text-gray-600 font-mono">₹${parseFloat(d.total).toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
+            <td class="px-3 py-2 text-sm text-right text-indigo-600 font-bold">${pct}%</td>
+          </tr>
+        `;
+      });
+      $('#categorySummaryTableBody').html(catTableHtml);
+
+      const userLabels = userData.map(d => d.name);
+      const userTotals = userData.map(d => d.total);
+      const userSum = userTotals.reduce((a, b) => a + b, 0);
+
+      if (summaryUserChart) summaryUserChart.destroy();
+      const userCtx = document.getElementById('summaryUserChart').getContext('2d');
+      summaryUserChart = new Chart(userCtx, {
+        type: 'doughnut',
+        data: {
+          labels: userLabels,
+          datasets: [{ data: userTotals, backgroundColor: ['#3b82f6', '#ec4899', '#f59e0b', '#10b981', '#8b5cf6'] }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } }
+        }
+      });
+
+      let userTableHtml = '';
+      userData.forEach(d => {
+        const pct = userSum > 0 ? ((d.total / userSum) * 100).toFixed(1) : 0;
+        userTableHtml += `
+          <tr>
+            <td class="px-3 py-2 text-sm text-gray-900 font-medium">${d.name}</td>
+            <td class="px-3 py-2 text-sm text-right text-gray-600 font-mono">₹${parseFloat(d.total).toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
+            <td class="px-3 py-2 text-sm text-right text-indigo-600 font-bold">${pct}%</td>
+          </tr>
+        `;
+      });
+      $('#userSummaryTableBody').html(userTableHtml);
+    }
+
+    // =============================================================
+    // 0-MILLISECOND INSTANT DASHBOARD COMPUTATION
+    // =============================================================
+    function renderInstantDashboard() {
+      const now = new Date();
+      const curMonth = now.getMonth() + 1;
+      const curYear = now.getFullYear();
+
+      let totalExpenses = 0;
+      let monthlyExpenses = 0;
+      const catTotals = {};
+
+      allExpenses.forEach(e => {
+        totalExpenses += e.amount;
+        const parts = e.expense_date.split('-');
+        if (parts.length === 3) {
+          const ey = parseInt(parts[0], 10);
+          const em = parseInt(parts[1], 10);
+          if (em === curMonth && ey === curYear) {
+            monthlyExpenses += e.amount;
+            catTotals[e.type] = (catTotals[e.type] || 0) + e.amount;
+          }
+        }
+      });
+
+      let avgMonthly = totalExpenses;
+      if (firstRecordDate !== 'N/A') {
+        const [fd, fm, fy] = firstRecordDate.split('/').map(Number);
+        const pastMonths = (curYear - fy) * 12 + (curMonth - fm);
+        const daysInCurMonth = new Date(curYear, curMonth, 0).getDate();
+        const fractionalCurMonth = now.getDate() / daysInCurMonth;
+        const totalMonths = pastMonths + fractionalCurMonth;
+        avgMonthly = totalMonths > 0 ? totalExpenses / totalMonths : totalExpenses;
+      }
+
+      $('#dashFirstDateLabel').text('Total Expenses since ' + firstRecordDate);
+      $('#dashTotalExpenses').text('₹' + parseFloat(totalExpenses).toLocaleString('en-IN', {minimumFractionDigits: 2}));
+      $('#dashMonthlyExpenses').text('₹' + parseFloat(monthlyExpenses).toLocaleString('en-IN', {minimumFractionDigits: 2}));
+      $('#dashAvgMonthly').text('₹' + parseFloat(avgMonthly).toLocaleString('en-IN', {minimumFractionDigits: 2}));
+
+      let rHtml = '';
+      allExpenses.slice(0, 5).forEach(e => {
+        rHtml += `
+          <tr>
+            <td class="py-3 pr-2 font-medium text-gray-900">${escapeHtml(e.title)}</td>
+            <td class="py-3 px-2 text-gray-500">${formatDisplayDate(e.expense_date)}</td>
+            <td class="py-3 px-2 text-indigo-600 font-semibold font-mono">₹${parseFloat(e.amount).toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
+            <td class="py-3 pl-2 text-right text-gray-400 text-xs">${e.creator_name}</td>
+          </tr>
+        `;
+      });
+      $('#dashRecentTable').html(rHtml);
+
+      const categoryData = Object.keys(catTotals).map(k => ({ type: k, total: catTotals[k] })).sort((a, b) => b.total - a.total);
+      if (dashCatChart) dashCatChart.destroy();
+      const ctx = document.getElementById('dashCategoryChart').getContext('2d');
+      dashCatChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: categoryData.map(c => c.type),
+          datasets: [{
+            data: categoryData.map(c => c.total),
+            backgroundColor: ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#8b5cf6', '#3b82f6', '#14b8a6']
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } }
+        }
+      });
+    }
+
+    // =============================================================
+    // 0-MILLISECOND INSTANT ANALYSIS
+    // =============================================================
+    function renderInstantAnalysis(e) {
+      if (e) e.preventDefault();
+
+      const cat = $('#analysisCat').val();
+      const whom = $('#analysisWhom').val();
+      const fromDate = $('#analysisFromDate').val();
+      const toDate = $('#analysisToDate').val();
+
+      let totalSpending = 0;
+      const whomMap = {};
+      const catMap = {};
+
+      allExpenses.forEach(exp => {
+        if (cat && exp.type !== cat) return;
+        if (whom && exp.for_whom !== whom) return;
+        if (fromDate && exp.expense_date < fromDate) return;
+        if (toDate && exp.expense_date > toDate) return;
+
+        totalSpending += exp.amount;
+        whomMap[exp.for_whom] = (whomMap[exp.for_whom] || 0) + exp.amount;
+        catMap[exp.type] = (catMap[exp.type] || 0) + exp.amount;
+      });
+
+      const spent_on_data = Object.keys(whomMap).map(k => ({ name: k, total: whomMap[k] })).sort((a, b) => b.total - a.total);
+      const category_data = Object.keys(catMap).map(k => ({ type: k, total: catMap[k] })).sort((a, b) => b.total - a.total);
+
+      let whomHtml = '';
+      spent_on_data.forEach(d => {
+        const pct = totalSpending > 0 ? ((d.total / totalSpending) * 100).toFixed(1) : 0;
+        whomHtml += `
+          <tr>
+            <td class="px-4 py-2 font-medium text-gray-900">${d.name}</td>
+            <td class="px-4 py-2 text-right font-mono text-gray-600">₹${parseFloat(d.total).toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
+            <td class="px-4 py-2 text-right font-bold text-indigo-600">${pct}%</td>
+          </tr>
+        `;
+      });
+      $('#analysisWhomTableBody').html(whomHtml);
+
+      if (analysisWhomChartInstance) analysisWhomChartInstance.destroy();
+      const ctxWhom = document.getElementById('analysisWhomChart').getContext('2d');
+      analysisWhomChartInstance = new Chart(ctxWhom, {
+        type: 'doughnut',
+        data: {
+          labels: spent_on_data.map(d => d.name),
+          datasets: [{ data: spent_on_data.map(d => d.total), backgroundColor: ['#3b82f6', '#ec4899', '#f59e0b', '#10b981', '#8b5cf6'] }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+      });
+
+      let catHtml = '';
+      category_data.forEach(d => {
+        const pct = totalSpending > 0 ? ((d.total / totalSpending) * 100).toFixed(1) : 0;
+        catHtml += `
+          <tr>
+            <td class="px-4 py-2 font-medium text-gray-900">${d.type}</td>
+            <td class="px-4 py-2 text-right font-mono text-gray-600">₹${parseFloat(d.total).toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
+            <td class="px-4 py-2 text-right font-bold text-indigo-600">${pct}%</td>
+          </tr>
+        `;
+      });
+      $('#analysisCatTableBody').html(catHtml);
+
+      if (analysisCatChartInstance) analysisCatChartInstance.destroy();
+      const ctxCat = document.getElementById('analysisCatChart').getContext('2d');
+      analysisCatChartInstance = new Chart(ctxCat, {
+        type: 'doughnut',
+        data: {
+          labels: category_data.map(d => d.type),
+          datasets: [{ data: category_data.map(d => d.total), backgroundColor: ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#8b5cf6', '#3b82f6', '#14b8a6'] }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+      });
+    }
+
+    function resetAnalysisFilters() {
+      $('#analysisFilterForm')[0].reset();
+      renderInstantAnalysis();
+    }
+
+    // =============================================================
+    // SERVER-CONFIRMED AUTO-UPDATE (No Manual Refresh Required!)
+    // =============================================================
     function openExpenseModal(item = null) {
       $('#expenseForm')[0].reset();
       $('#expense_id').val('');
@@ -1094,7 +1336,7 @@
     }
 
     function editExpense(id) {
-      const exp = loadedExpenses.find(e => e.id === id);
+      const exp = allExpenses.find(e => e.id === id);
       if (exp) {
         openExpenseModal(exp);
       }
@@ -1111,12 +1353,27 @@
         confirmButtonText: 'Yes, delete it!'
       }).then(async (result) => {
         if (result.isConfirmed) {
+          Swal.fire({
+            title: 'Deleting...',
+            text: 'Removing from Google Sheets...',
+            allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); }
+          });
+
           try {
             const res = await callApi('delete_expense', {}, { id: id, userId: currentUser.id });
             if (res.success) {
-              Swal.fire({ icon: 'success', title: 'Deleted!', text: res.message, timer: 1500, showConfirmButton: false });
-              loadExpenses();
-              loadMonthlySummary();
+              // 1. Immediately remove from live in-memory list
+              allExpenses = allExpenses.filter(e => e.id !== id);
+
+              // 2. Update local cache
+              localStorage.setItem('et_cached_expenses', JSON.stringify(allExpenses));
+
+              // 3. Immediately re-render screen (No refresh needed!)
+              renderInstantExpenses();
+              renderInstantMonthlySummary();
+
+              Swal.fire({ icon: 'success', title: 'Deleted!', text: res.message, timer: 1200, showConfirmButton: false });
             } else {
               Swal.fire({ icon: 'error', title: 'Error', text: res.message });
             }
@@ -1141,10 +1398,11 @@
       }
 
       const btn = $('#modalSaveBtn');
-      btn.html('<i class="fas fa-spinner fa-spin mr-1"></i> Saving...').prop('disabled', true);
+      btn.html('<i class="fas fa-spinner fa-spin mr-1"></i> Saving to Database...').prop('disabled', true);
 
+      const expId = $('#expense_id').val();
       const payload = {
-        expense_id: $('#expense_id').val(),
+        expense_id: expId,
         title: title,
         amount: amount,
         expense_date: $('#expense_date').val(),
@@ -1157,13 +1415,31 @@
         const res = await callApi('save_expense', {}, { data: payload, userId: currentUser.id });
         btn.text('Save').prop('disabled', false);
 
-        if (res.success) {
-          Swal.fire({ icon: 'success', title: 'Success!', text: res.message, timer: 1500, showConfirmButton: false });
+        if (res.success && res.expense) {
+          const savedExp = res.expense;
+
+          if (expId) {
+            // Edit: Update matching record in memory
+            const idx = allExpenses.findIndex(item => item.id == expId);
+            if (idx !== -1) {
+              allExpenses[idx] = savedExp;
+            }
+          } else {
+            // Add: Put new expense at the very top of memory list!
+            allExpenses.unshift(savedExp);
+          }
+
+          // Update local cache
+          localStorage.setItem('et_cached_expenses', JSON.stringify(allExpenses));
+
+          // Auto-update UI immediately (No refresh needed!)
+          renderInstantExpenses();
+          renderInstantMonthlySummary();
+
           closeExpenseModal();
-          loadExpenses();
-          loadMonthlySummary();
+          Swal.fire({ icon: 'success', title: 'Saved!', text: res.message, timer: 1200, showConfirmButton: false });
         } else {
-          Swal.fire({ icon: 'error', title: 'Error', text: res.message });
+          Swal.fire({ icon: 'error', title: 'Error', text: res.message || 'Failed to save' });
         }
       } catch (err) {
         btn.text('Save').prop('disabled', false);
@@ -1171,143 +1447,9 @@
       }
     }
 
-    // -------------------------------------------------------------
-    // DASHBOARD TAB
-    // -------------------------------------------------------------
-
-    async function loadDashboardStats() {
-      try {
-        const data = await callApi('get_dashboard_stats');
-        if (data.success) {
-          $('#dashFirstDateLabel').text('Total Expenses since ' + data.formatted_first_date);
-          $('#dashTotalExpenses').text('₹' + parseFloat(data.total_expenses).toLocaleString('en-IN', {minimumFractionDigits: 2}));
-          $('#dashMonthlyExpenses').text('₹' + parseFloat(data.monthly_expenses).toLocaleString('en-IN', {minimumFractionDigits: 2}));
-          $('#dashAvgMonthly').text('₹' + parseFloat(data.average_monthly_expenses).toLocaleString('en-IN', {minimumFractionDigits: 2}));
-
-          let rHtml = '';
-          data.recent_expenses.forEach(e => {
-            rHtml += `
-              <tr>
-                <td class="py-3 pr-2 font-medium text-gray-900">${escapeHtml(e.title)}</td>
-                <td class="py-3 px-2 text-gray-500">${formatDisplayDate(e.expense_date)}</td>
-                <td class="py-3 px-2 text-indigo-600 font-semibold font-mono">₹${parseFloat(e.amount).toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
-                <td class="py-3 pl-2 text-right text-gray-400 text-xs">${e.creator_name}</td>
-              </tr>
-            `;
-          });
-          $('#dashRecentTable').html(rHtml);
-
-          if (dashCatChart) dashCatChart.destroy();
-          const ctx = document.getElementById('dashCategoryChart').getContext('2d');
-          dashCatChart = new Chart(ctx, {
-            type: 'doughnut',
-            data: {
-              labels: data.category_data.map(c => c.type),
-              datasets: [{
-                data: data.category_data.map(c => c.total),
-                backgroundColor: ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#8b5cf6', '#3b82f6', '#14b8a6']
-              }]
-            },
-            options: {
-              responsive: true,
-              maintainAspectRatio: false,
-              plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } }
-            }
-          });
-        }
-      } catch (err) {
-        console.error('Error loading dashboard stats:', err);
-      }
-    }
-
-    // -------------------------------------------------------------
-    // STATISTICAL ANALYSIS TAB
-    // -------------------------------------------------------------
-
-    async function loadAnalysis() {
-      const cat = $('#analysisCat').val();
-      const whom = $('#analysisWhom').val();
-      const fromDate = $('#analysisFromDate').val();
-      const toDate = $('#analysisToDate').val();
-
-      try {
-        const res = await callApi('get_analysis', {
-          category: cat, for_whom: whom, from_date: fromDate, to_date: toDate
-        });
-        if (res.success) {
-          renderAnalysisResults(res);
-        }
-      } catch (err) {
-        console.error('Error loading analysis:', err);
-      }
-    }
-
-    function handleAnalysisSubmit(e) {
-      e.preventDefault();
-      loadAnalysis();
-    }
-
-    function resetAnalysisFilters() {
-      $('#analysisFilterForm')[0].reset();
-      loadAnalysis();
-    }
-
-    function renderAnalysisResults(res) {
-      const tot = res.total_spending;
-
-      let whomHtml = '';
-      res.spent_on_data.forEach(d => {
-        const pct = tot > 0 ? ((d.total / tot) * 100).toFixed(1) : 0;
-        whomHtml += `
-          <tr>
-            <td class="px-4 py-2 font-medium text-gray-900">${d.name}</td>
-            <td class="px-4 py-2 text-right font-mono text-gray-600">₹${parseFloat(d.total).toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
-            <td class="px-4 py-2 text-right font-bold text-indigo-600">${pct}%</td>
-          </tr>
-        `;
-      });
-      $('#analysisWhomTableBody').html(whomHtml);
-
-      if (analysisWhomChartInstance) analysisWhomChartInstance.destroy();
-      const ctxWhom = document.getElementById('analysisWhomChart').getContext('2d');
-      analysisWhomChartInstance = new Chart(ctxWhom, {
-        type: 'doughnut',
-        data: {
-          labels: res.spent_on_data.map(d => d.name),
-          datasets: [{ data: res.spent_on_data.map(d => d.total), backgroundColor: ['#3b82f6', '#ec4899', '#f59e0b', '#10b981', '#8b5cf6'] }]
-        },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
-      });
-
-      let catHtml = '';
-      res.category_data.forEach(d => {
-        const pct = tot > 0 ? ((d.total / tot) * 100).toFixed(1) : 0;
-        catHtml += `
-          <tr>
-            <td class="px-4 py-2 font-medium text-gray-900">${d.type}</td>
-            <td class="px-4 py-2 text-right font-mono text-gray-600">₹${parseFloat(d.total).toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
-            <td class="px-4 py-2 text-right font-bold text-indigo-600">${pct}%</td>
-          </tr>
-        `;
-      });
-      $('#analysisCatTableBody').html(catHtml);
-
-      if (analysisCatChartInstance) analysisCatChartInstance.destroy();
-      const ctxCat = document.getElementById('analysisCatChart').getContext('2d');
-      analysisCatChartInstance = new Chart(ctxCat, {
-        type: 'doughnut',
-        data: {
-          labels: res.category_data.map(d => d.type),
-          datasets: [{ data: res.category_data.map(d => d.total), backgroundColor: ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#8b5cf6', '#3b82f6', '#14b8a6'] }]
-        },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
-      });
-    }
-
-    // -------------------------------------------------------------
-    // AUDIT LOGS TAB
-    // -------------------------------------------------------------
-
+    // =============================================================
+    // AUDIT LOGS
+    // =============================================================
     async function loadAuditLogs() {
       try {
         const res = await callApi('get_audit_logs');
@@ -1364,10 +1506,6 @@
       $('#auditTableBody').html(tableHtml);
       $('#auditMobileCards').html(cardHtml);
     }
-
-    // -------------------------------------------------------------
-    // HELPERS
-    // -------------------------------------------------------------
 
     function formatDisplayDate(dateStr) {
       if (!dateStr) return '';
