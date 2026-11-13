@@ -3,6 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- HTTP Cache-Busting Headers: Prevent Disk & Browser Caching -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>Expense Tracker Portal</title>
   
   <!-- Tailwind CSS -->
@@ -147,10 +151,62 @@
         <input type="password" id="pinField" placeholder="Enter PIN (Default: 1234)" inputmode="numeric" maxlength="6"
                class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border py-2.5 px-3 text-center tracking-widest text-lg font-bold">
         <button onclick="submitPinLogin()" id="submitPinBtn" 
-                class="mt-4 w-full flex justify-center py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                class="mt-4 w-full flex justify-center py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition">
           Sign In
         </button>
+
+        <div class="mt-4 pt-3 border-t border-gray-100 text-center">
+          <button type="button" onclick="handleForgotPassword()" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 hover:underline inline-flex items-center">
+            <i class="fas fa-key mr-1.5 text-xs text-indigo-500"></i> Forgot PIN / Password?
+          </button>
+        </div>
       </div>
+    </div>
+  </div>
+
+
+  <!-- ============================================================== -->
+  <!-- MANDATORY CHANGE PIN VIEW (Replicates change_password.php)       -->
+  <!-- ============================================================== -->
+  <div id="changePinView" class="hidden min-h-screen flex items-center justify-center p-4 bg-gray-50">
+    <div class="max-w-md w-full space-y-6 bg-white p-8 rounded-xl shadow-lg border border-gray-100">
+      <div class="text-center">
+        <div class="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl shadow-inner">
+          <i class="fas fa-shield-alt"></i>
+        </div>
+        <h2 class="text-2xl font-extrabold text-gray-900 tracking-tight">Change Your PIN</h2>
+        <p class="mt-2 text-sm text-gray-600">
+          For security reasons, you are required to change your temporary PIN before accessing your dashboard.
+        </p>
+      </div>
+
+      <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800 flex items-start space-x-2">
+        <i class="fas fa-info-circle text-amber-600 mt-0.5 flex-shrink-0"></i>
+        <span>Please choose a <strong>4 to 6 digit numeric PIN</strong> that you will use for future logins.</span>
+      </div>
+
+      <form id="changePinForm" onsubmit="submitNewPin(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">New PIN (4-6 Digits)</label>
+          <input type="password" id="newPinInput" inputmode="numeric" maxlength="6" minlength="4" required placeholder="••••"
+                 class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border py-2.5 px-3 text-center tracking-widest text-lg font-bold">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">Confirm New PIN</label>
+          <input type="password" id="confirmPinInput" inputmode="numeric" maxlength="6" minlength="4" required placeholder="••••"
+                 class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border py-2.5 px-3 text-center tracking-widest text-lg font-bold">
+        </div>
+
+        <button type="submit" id="saveNewPinBtn"
+                class="w-full flex justify-center items-center py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out">
+          <i class="fas fa-check-circle mr-2"></i> Update PIN & Continue
+        </button>
+
+        <button type="button" onclick="cancelChangePin()" class="w-full text-center text-xs text-gray-500 hover:text-gray-800 underline pt-1">
+          Cancel & Back to Login
+        </button>
+      </form>
     </div>
   </div>
 
@@ -181,14 +237,22 @@
           </div>
 
           <div class="flex items-center space-x-3">
-            <!-- Subtle Sync Status Badge -->
-            <span id="syncStatusBadge" class="hidden sm:inline-flex items-center text-xs text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-full">
+            <!-- Subtle Sync Status Badge (Clickable for 1-click hard refresh) -->
+            <button onclick="forceHardRefresh()" type="button" id="syncStatusBadge" title="Click to hard refresh latest data" class="hidden sm:inline-flex items-center text-xs text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-full cursor-pointer hover:bg-indigo-100 transition">
               <i class="fas fa-sync-alt fa-spin mr-1.5 text-xs text-indigo-500"></i>Syncing...
-            </span>
+            </button>
 
-            <div class="hidden md:flex items-center ml-2">
-              <span class="text-sm text-gray-600 mr-4">Welcome, <strong id="topUserName">User</strong></span>
-              <button onclick="handleLogout()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium transition duration-150 ease-in-out">Logout</button>
+            <!-- 1-Click Hard Refresh Button -->
+            <button onclick="forceHardRefresh()" type="button" class="hidden sm:inline-flex items-center justify-center p-2 text-gray-500 hover:text-indigo-600 rounded-full hover:bg-gray-100 transition" title="Force Hard Refresh App & Data">
+              <i class="fas fa-redo-alt text-sm"></i>
+            </button>
+
+            <div class="hidden md:flex items-center ml-2 space-x-2">
+              <span class="text-sm text-gray-600 mr-2">Welcome, <strong id="topUserName">User</strong></span>
+              <button onclick="openInAppChangePinModal()" type="button" title="Change Your PIN" class="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-semibold rounded-md text-gray-700 bg-white hover:bg-gray-50 hover:text-indigo-600 transition">
+                <i class="fas fa-key mr-1.5 text-xs text-indigo-500"></i> Change PIN
+              </button>
+              <button onclick="handleLogout()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-1.5 rounded-md text-sm font-medium transition duration-150 ease-in-out">Logout</button>
             </div>
             
             <!-- Mobile Menu Toggle Button -->
@@ -216,11 +280,19 @@
                 <div class="text-base font-medium text-gray-800" id="mobileUserName">User</div>
                 <div class="text-sm font-medium text-gray-500" id="mobileUserRole">Role</div>
               </div>
-              <span id="mobileSyncBadge" class="text-xs text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
-                <i class="fas fa-sync-alt fa-spin text-xs"></i>
-              </span>
+              <div class="flex items-center gap-2">
+                <button onclick="forceHardRefresh()" type="button" title="Hard Refresh App" class="text-xs text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 p-1.5 rounded-full transition">
+                  <i class="fas fa-redo-alt text-xs"></i>
+                </button>
+                <span id="mobileSyncBadge" class="text-xs text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+                  <i class="fas fa-sync-alt fa-spin text-xs"></i>
+                </span>
+              </div>
             </div>
-            <div class="mt-3 px-2">
+            <div class="mt-3 px-2 space-y-1">
+              <button onclick="openInAppChangePinModal()" class="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100">
+                <i class="fas fa-key mr-2 text-indigo-500"></i> Change PIN
+              </button>
               <button onclick="handleLogout()" class="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-red-600 hover:bg-red-50">Logout</button>
             </div>
           </div>
@@ -929,22 +1001,114 @@
     </div>
   </div>
 
+
+  <!-- ============================================================== -->
+  <!-- IN-APP CHANGE PIN MODAL                                        -->
+  <!-- ============================================================== -->
+  <div id="inAppChangePinModal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+      <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onclick="closeInAppChangePinModal()"></div>
+      <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+      
+      <div class="inline-block align-bottom bg-white rounded-xl px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-md sm:w-full sm:p-6 border border-gray-100">
+        <div class="flex items-center justify-between pb-3 border-b border-gray-100">
+          <div class="flex items-center space-x-2">
+            <div class="w-9 h-9 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center text-sm font-bold">
+              <i class="fas fa-key"></i>
+            </div>
+            <div>
+              <h3 class="text-base leading-6 font-bold text-gray-900">Change PIN</h3>
+              <p class="text-xs text-gray-500">Update your 4 to 6 digit login PIN</p>
+            </div>
+          </div>
+          <button type="button" onclick="closeInAppChangePinModal()" class="text-gray-400 hover:text-gray-500 p-1">
+            <i class="fas fa-times text-base"></i>
+          </button>
+        </div>
+
+        <form id="inAppChangePinForm" onsubmit="submitInAppPinChange(event)" class="space-y-4 mt-4">
+          <div>
+            <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">New PIN (4-6 Digits)</label>
+            <input type="password" id="inAppNewPin" inputmode="numeric" maxlength="6" minlength="4" required placeholder="••••"
+                   class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border py-2.5 px-3 text-center tracking-widest text-lg font-bold">
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">Confirm New PIN</label>
+            <input type="password" id="inAppConfirmPin" inputmode="numeric" maxlength="6" minlength="4" required placeholder="••••"
+                   class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border py-2.5 px-3 text-center tracking-widest text-lg font-bold">
+          </div>
+
+          <div class="pt-2 flex justify-end space-x-3">
+            <button type="button" onclick="closeInAppChangePinModal()" class="px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Cancel</button>
+            <button type="submit" id="saveInAppPinBtn" class="px-4 py-2 border border-transparent shadow-sm text-sm font-semibold rounded-md text-white bg-indigo-600 hover:bg-indigo-700 flex items-center">
+              <i class="fas fa-check mr-1.5"></i> Update PIN
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+
   <!-- ============================================================== -->
   <!-- ⚡ HIGH-SPEED FIREBASE + CLIENT-SIDE JAVASCRIPT ENGINE           -->
   <!-- ============================================================== -->
   <script>
+    // Build version identifier (auto-increments on deployment to bust stale caches)
+    const APP_BUILD_ID = "20261113_v4";
+
+    // 1. Automatically force a hard reload when resumed from mobile browser bfcache
+    window.addEventListener('pageshow', function(event) {
+      if (event.persisted) {
+        console.log("Restored from bfcache - forcing fresh reload");
+        window.location.reload();
+      }
+    });
+
+    // 2. Automated background check for newly deployed versions on GitHub Pages
+    (function checkRemoteVersion() {
+      const lastCheck = sessionStorage.getItem('et_last_ver_check');
+      const now = Date.now();
+      if (!lastCheck || (now - Number(lastCheck)) > 15000) {
+        sessionStorage.setItem('et_last_ver_check', String(now));
+        fetch(window.location.pathname + '?_bust=' + now, {
+          method: 'GET',
+          headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' },
+          cache: 'no-store'
+        }).then(r => r.text()).then(html => {
+          const match = html.match(/const APP_BUILD_ID = ["']([^"']+)["']/);
+          if (match && match[1] && match[1] !== APP_BUILD_ID) {
+            console.log("New deployment detected (" + match[1] + "). Auto-refreshing to latest version...");
+            localStorage.removeItem('et_cached_expenses');
+            window.location.replace(window.location.pathname + '?_v=' + match[1]);
+          }
+        }).catch(() => {});
+      }
+    })();
+
+    // 3. User-triggered 1-click hard refresh function
+    function forceHardRefresh() {
+      updateSyncBadge(true);
+      localStorage.removeItem('et_cached_expenses');
+      localStorage.removeItem('et_cached_first_date');
+      sessionStorage.clear();
+      window.location.replace(window.location.pathname + '?_t=' + Date.now());
+    }
+
     // Fallback Google Apps Script URL (in case Firebase is offline)
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxPA5Kv4ysmn6tS0a27jQ29BPSdtjUel68-sWWVNxd7IbUiXrFqokNFFOKQaDXiOTLy3A/exec';
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbztUQRrXye-vPHyeVseOlG8tMSrcJ4jB5lf0I6AYG2_Gpk9DhB6yr0jmSBCyIiUqs3Xag/exec';
 
     // In-Memory state for 0-millisecond instant UI updates
     let allExpenses = [];
     let cachedUsers = [
-      { id: 1, name: 'Mainak Saha', role: 'admin' },
-      { id: 3, name: 'Samanwita Laha', role: 'user' }
+      { id: 1, name: 'Mainak Saha', role: 'admin', email: 'mainaks25@gmail.com' },
+      { id: 3, name: 'Samanwita Laha', role: 'user', email: 'sama77707@gmail.com' }
     ];
     let firstRecordDate = 'N/A';
     let currentUser = null;
     let selectedProfile = null;
+    let pendingPinChangeUser = null;
 
     let summaryCatChart = null;
     let summaryUserChart = null;
@@ -986,6 +1150,13 @@
     $(document).ready(function() {
       initYearOptions();
       checkSession();
+
+      const pinInput = document.getElementById('pinField');
+      if (pinInput) {
+        pinInput.addEventListener('keydown', function(e) {
+          if (e.key === 'Enter') submitPinLogin();
+        });
+      }
     });
 
     function initYearOptions() {
@@ -1047,6 +1218,14 @@
           localStorage.setItem('et_cached_users', JSON.stringify(cachedUsers));
           populateUserFilter(cachedUsers);
           if (!currentUser) renderProfileButtons(cachedUsers);
+
+          // If current logged-in user is flagged with password_changed === false, force change!
+          if (currentUser) {
+            const me = uList.find(u => Number(u.id) === Number(currentUser.id));
+            if (me && (me.password_changed === false || me.password_changed === 0)) {
+              showMandatoryChangePinView(me);
+            }
+          }
         }
       });
     }
@@ -1209,7 +1388,7 @@
         }
       } else {
         if (desktopBadge) {
-          desktopBadge.className = 'hidden sm:inline-flex items-center text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full';
+          desktopBadge.className = 'hidden sm:inline-flex items-center text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full cursor-pointer hover:bg-emerald-100 transition';
           desktopBadge.innerHTML = '<i class="fas fa-check-circle mr-1.5 text-xs text-emerald-500"></i>Synced';
         }
         if (mobileBadge) {
@@ -1244,18 +1423,184 @@
     }
 
     function pickProfile(id, name) {
-      selectedProfile = { id, name };
+      const u = cachedUsers.find(x => Number(x.id) === Number(id)) || { id, name };
+      selectedProfile = u;
       document.getElementById('profileButtons').classList.add('hidden');
       document.getElementById('pinBox').classList.remove('hidden');
       document.getElementById('activeProfileName').innerText = name;
-      document.getElementById('pinField').value = '';
-      document.getElementById('pinField').focus();
+      const pinField = document.getElementById('pinField');
+      pinField.value = '';
+      pinField.placeholder = 'Enter PIN (Default: 1234)';
+      pinField.focus();
     }
 
     function cancelPin() {
       selectedProfile = null;
       document.getElementById('pinBox').classList.add('hidden');
       document.getElementById('profileButtons').classList.remove('hidden');
+    }
+
+    function maskEmail(email) {
+      if (!email || !email.includes('@')) return email || '';
+      const parts = email.split('@');
+      const user = parts[0];
+      const domain = parts[1];
+      if (user.length <= 2) return user.charAt(0) + '*@' + domain;
+      const first = user.slice(0, 2);
+      const last = user.slice(-2);
+      return first + '****' + last + '@' + domain;
+    }
+
+    async function handleForgotPassword() {
+      if (!selectedProfile) {
+        Swal.fire({ icon: 'info', text: 'Please select your profile first.' });
+        return;
+      }
+
+      // Find user details
+      let user = cachedUsers.find(u => Number(u.id) === Number(selectedProfile.id));
+      if (!user || !user.email) {
+        if (window.FS && window.FS.db) {
+          try {
+            const q = window.FS.query(window.FS.collection(window.FS.db, 'users'), window.FS.where('id', '==', Number(selectedProfile.id)));
+            const snap = await window.FS.getDocs(q);
+            snap.forEach(d => { user = d.data(); });
+          } catch (e) {}
+        }
+      }
+
+      const email = (user && user.email) ? user.email : (selectedProfile.id === 1 ? 'mainaks25@gmail.com' : 'sama77707@gmail.com');
+      const masked = maskEmail(email);
+      const userName = (user && user.name) || selectedProfile.name;
+      const userRole = (user && user.role) || 'user';
+
+      const confirm = await Swal.fire({
+        title: 'Forgot PIN / Password?',
+        html: `
+          <div class="text-left text-sm text-gray-600 space-y-3">
+            <p>A random <strong>6-digit temporary PIN</strong> will be generated and sent to your registered email address:</p>
+            <div class="bg-indigo-50 border border-indigo-100 p-3 rounded-lg text-indigo-700 font-semibold text-center text-sm">
+              <i class="fas fa-envelope mr-1.5 text-indigo-500"></i> ${masked}
+            </div>
+            <p class="text-xs text-gray-500">
+              You will use this temporary 6-digit PIN to sign in, after which you will be immediately prompted to set your desired custom PIN.
+            </p>
+          </div>
+        `,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#4f46e5',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: '<i class="fas fa-paper-plane mr-1.5"></i> Send Temporary PIN',
+        cancelButtonText: 'Cancel'
+      });
+
+      if (!confirm.isConfirmed) return;
+
+      // Show loader
+      Swal.fire({
+        title: 'Sending Temporary PIN...',
+        html: '<div class="py-4 text-center"><i class="fas fa-spinner fa-spin text-indigo-600 text-3xl mb-3"></i><p class="text-sm text-gray-600">Generating secure 6-digit code and dispatching email to your inbox...</p></div>',
+        allowOutsideClick: false,
+        showConfirmButton: false
+      });
+
+      // Generate random 6-digit PIN
+      const tempPin = String(Math.floor(100000 + Math.random() * 900000));
+
+      // 1. Update Firestore user doc
+      try {
+        if (window.FS && window.FS.db) {
+          const docRef = window.FS.doc(window.FS.db, 'users', String(selectedProfile.id));
+          await window.FS.setDoc(docRef, {
+            id: Number(selectedProfile.id),
+            name: userName,
+            email: email,
+            role: userRole,
+            pin: tempPin,
+            password_changed: false,
+            last_reset_at: new Date().toISOString()
+          }, { merge: true });
+        }
+      } catch (err) {
+        console.error('Failed to update temporary PIN in Firestore:', err);
+      }
+
+      // 2. Dispatch Email via Google Apps Script
+      await sendResetEmailViaScript(email, userName, tempPin, userRole);
+
+      Swal.fire({
+        icon: 'success',
+        title: 'Temporary PIN Sent!',
+        html: `
+          <div class="text-left text-sm text-gray-700 space-y-2">
+            <p>A temporary 6-digit PIN has been emailed to <strong>${masked}</strong>.</p>
+            <p class="text-xs text-gray-500">Please check your inbox (or spam folder), enter the 6-digit PIN below, and click <strong>Sign In</strong>.</p>
+          </div>
+        `,
+        confirmButtonColor: '#4f46e5',
+        confirmButtonText: 'Enter PIN'
+      });
+
+      const pinField = document.getElementById('pinField');
+      pinField.value = '';
+      pinField.placeholder = 'Enter 6-digit Temporary PIN';
+      pinField.focus();
+    }
+
+    async function sendResetEmailViaScript(toEmail, userName, tempPin, userRole) {
+      // 1. Primary: Project's Google Apps Script URL
+      try {
+        const res = await callApi('send_password_reset_email', {}, {
+          email: toEmail,
+          name: userName,
+          tempPin: tempPin,
+          role: userRole
+        });
+        if (res && (res.success || res.status === 'success')) return true;
+      } catch (e) {
+        console.warn('Primary script email attempt failed, falling back to relay...', e);
+      }
+
+      // 2. Secondary Relay fallback (Google Script relay from email_config.php)
+      try {
+        const RELAY_URL = 'https://script.google.com/macros/s/AKfycbxp4a0LvY1ysknb4PBRF1CyV-h59x27N32sUznaEWUX_U6Zbyxc-vzmQMMUFNEuYegS/exec';
+        const roleDisplay = userRole ? (userRole.charAt(0).toUpperCase() + userRole.slice(1)) : 'User';
+        const bodyHtml = `
+          <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 520px; padding: 24px; border: 1px solid #e2e8f0; border-radius: 10px;">
+            <h2 style="color: #4f46e5; margin: 0 0 10px;">Expense Tracker Portal</h2>
+            <p>Dear <strong>${userName}</strong>,</p>
+            <p>We received a request to reset the login PIN for your account on the <strong>Expense Tracker Portal</strong>.</p>
+            <div style="background-color: #f8fafc; padding: 16px; border-left: 4px solid #4f46e5; margin: 16px 0; border-radius: 4px;">
+              <p style="margin: 0 0 6px;"><strong>Website:</strong> <a href="https://mainaks25.github.io/ExpenseTracker/" style="color: #4f46e5;">https://mainaks25.github.io/ExpenseTracker/</a></p>
+              <p style="margin: 0 0 6px;"><strong>Username:</strong> ${toEmail}</p>
+              <p style="margin: 0 0 10px;"><strong>Role:</strong> ${roleDisplay}</p>
+              <div><strong>Temporary 6-Digit PIN:</strong><br>
+                <span style="display: inline-block; margin-top: 6px; background-color: #fef3c7; color: #92400e; font-size: 22px; font-weight: bold; letter-spacing: 4px; padding: 6px 16px; border-radius: 6px; border: 1px dashed #f59e0b;">${tempPin}</span>
+              </div>
+            </div>
+            <p style="color: #b91c1c; font-weight: 600; font-size: 13px;">🔒 Mandatory Security Step: You will be required to change this temporary PIN immediately upon your login.</p>
+            <p style="margin-top: 20px;">Best regards,<br><strong>Expense Tracker Admin</strong></p>
+          </div>
+        `;
+        const res = await fetch(RELAY_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            action: 'sendEmail',
+            to: toEmail,
+            subject: 'Password Reset Request - [Expense Tracker Portal]',
+            body: bodyHtml,
+            to_name: userName,
+            from_name: 'Expense Tracker Admin'
+          })
+        });
+        const data = await res.json();
+        if (data && (data.status === 'success' || data.success)) return true;
+      } catch (errRelay) {
+        console.warn('Relay email attempt failed:', errRelay);
+      }
+      return false;
     }
 
     async function submitPinLogin() {
@@ -1278,8 +1623,14 @@
           btn.innerHTML = 'Sign In';
           btn.disabled = false;
           if (uData) {
-            if (String(uData.pin) === String(pin) || pin === '1234') {
-              currentUser = { id: uData.id, name: uData.name, role: uData.role };
+            const matchesPin = (String(uData.pin) === String(pin)) || (uData.pin === undefined && pin === '1234');
+            if (matchesPin) {
+              // Check if user is forced to change temporary password/PIN
+              if (uData.password_changed === false || uData.password_changed === 0) {
+                showMandatoryChangePinView(uData);
+                return;
+              }
+              currentUser = { id: uData.id, name: uData.name, role: uData.role, email: uData.email };
               localStorage.setItem('et_user_session', JSON.stringify(currentUser));
               showApp();
               return;
@@ -1297,11 +1648,177 @@
       btn.innerHTML = 'Sign In';
       btn.disabled = false;
       if (pin === '1234') {
-        currentUser = { id: selectedProfile.id, name: selectedProfile.name, role: selectedProfile.role || 'user' };
+        currentUser = { id: selectedProfile.id, name: selectedProfile.name, role: selectedProfile.role || 'user', email: selectedProfile.email };
         localStorage.setItem('et_user_session', JSON.stringify(currentUser));
         showApp();
       } else {
         Swal.fire({ icon: 'error', text: 'Invalid PIN (Default is 1234)' });
+      }
+    }
+
+    function showMandatoryChangePinView(uData) {
+      pendingPinChangeUser = uData;
+      document.getElementById('loginView').classList.add('hidden');
+      document.getElementById('appView').classList.add('hidden');
+      document.getElementById('changePinView').classList.remove('hidden');
+      document.getElementById('newPinInput').value = '';
+      document.getElementById('confirmPinInput').value = '';
+      setTimeout(() => document.getElementById('newPinInput').focus(), 150);
+    }
+
+    function cancelChangePin() {
+      pendingPinChangeUser = null;
+      document.getElementById('changePinView').classList.add('hidden');
+      document.getElementById('loginView').classList.remove('hidden');
+      cancelPin();
+      renderProfileButtons(cachedUsers);
+    }
+
+    async function submitNewPin(e) {
+      if (e) e.preventDefault();
+      const newPin = document.getElementById('newPinInput').value.trim();
+      const confirmPin = document.getElementById('confirmPinInput').value.trim();
+
+      if (!/^\d{4,6}$/.test(newPin)) {
+        Swal.fire({ icon: 'warning', title: 'Invalid PIN', text: 'PIN must be between 4 and 6 numeric digits.' });
+        return;
+      }
+
+      if (newPin !== confirmPin) {
+        Swal.fire({ icon: 'error', title: 'Mismatch', text: 'New PIN and Confirm PIN do not match.' });
+        return;
+      }
+
+      if (!pendingPinChangeUser) {
+        Swal.fire({ icon: 'error', text: 'No active user session found for PIN change.' });
+        cancelChangePin();
+        return;
+      }
+
+      const btn = document.getElementById('saveNewPinBtn');
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Updating PIN...';
+      btn.disabled = true;
+
+      try {
+        if (window.FS && window.FS.db) {
+          const docRef = window.FS.doc(window.FS.db, 'users', String(pendingPinChangeUser.id));
+          await window.FS.updateDoc(docRef, {
+            pin: String(newPin),
+            password_changed: true,
+            updated_at: new Date().toISOString()
+          });
+
+          try {
+            await window.FS.addDoc(window.FS.collection(window.FS.db, 'audit_logs'), {
+              action: 'UPDATE',
+              expense_id: 0,
+              field_name: 'PIN',
+              old_value: '[Temporary Reset PIN]',
+              new_value: '[New User PIN Configured]',
+              changed_by: Number(pendingPinChangeUser.id),
+              changed_at: new Date().toISOString().replace('T', ' ').slice(0, 19)
+            });
+          } catch (ae) {}
+        }
+
+        currentUser = {
+          id: pendingPinChangeUser.id,
+          name: pendingPinChangeUser.name,
+          role: pendingPinChangeUser.role,
+          email: pendingPinChangeUser.email
+        };
+        localStorage.setItem('et_user_session', JSON.stringify(currentUser));
+        pendingPinChangeUser = null;
+
+        btn.innerHTML = '<i class="fas fa-check-circle mr-2"></i> Update PIN & Continue';
+        btn.disabled = false;
+
+        document.getElementById('changePinView').classList.add('hidden');
+        showApp();
+
+        Swal.fire({
+          icon: 'success',
+          title: 'PIN Updated Successfully!',
+          text: 'Your new PIN has been saved. Welcome to Expense Tracker!',
+          timer: 2000,
+          showConfirmButton: false
+        });
+      } catch (err) {
+        btn.innerHTML = '<i class="fas fa-check-circle mr-2"></i> Update PIN & Continue';
+        btn.disabled = false;
+        console.error('Failed to update PIN:', err);
+        Swal.fire({ icon: 'error', title: 'Update Failed', text: err.message || 'Could not update PIN.' });
+      }
+    }
+
+    function openInAppChangePinModal() {
+      if (!currentUser) return;
+      document.getElementById('inAppNewPin').value = '';
+      document.getElementById('inAppConfirmPin').value = '';
+      document.getElementById('inAppChangePinModal').classList.remove('hidden');
+      setTimeout(() => document.getElementById('inAppNewPin').focus(), 150);
+    }
+
+    function closeInAppChangePinModal() {
+      document.getElementById('inAppChangePinModal').classList.add('hidden');
+    }
+
+    async function submitInAppPinChange(e) {
+      if (e) e.preventDefault();
+      const newPin = document.getElementById('inAppNewPin').value.trim();
+      const confirmPin = document.getElementById('inAppConfirmPin').value.trim();
+
+      if (!/^\d{4,6}$/.test(newPin)) {
+        Swal.fire({ icon: 'warning', title: 'Invalid PIN', text: 'PIN must be between 4 and 6 numeric digits.' });
+        return;
+      }
+
+      if (newPin !== confirmPin) {
+        Swal.fire({ icon: 'error', title: 'Mismatch', text: 'New PIN and Confirm PIN do not match.' });
+        return;
+      }
+
+      const btn = document.getElementById('saveInAppPinBtn');
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1.5"></i> Updating...';
+      btn.disabled = true;
+
+      try {
+        if (window.FS && window.FS.db) {
+          const docRef = window.FS.doc(window.FS.db, 'users', String(currentUser.id));
+          await window.FS.updateDoc(docRef, {
+            pin: String(newPin),
+            password_changed: true,
+            updated_at: new Date().toISOString()
+          });
+
+          try {
+            await window.FS.addDoc(window.FS.collection(window.FS.db, 'audit_logs'), {
+              action: 'UPDATE',
+              expense_id: 0,
+              field_name: 'PIN',
+              old_value: '[User PIN]',
+              new_value: '[Updated from Settings]',
+              changed_by: Number(currentUser.id),
+              changed_at: new Date().toISOString().replace('T', ' ').slice(0, 19)
+            });
+          } catch (ae) {}
+        }
+
+        btn.innerHTML = '<i class="fas fa-check mr-1.5"></i> Update PIN';
+        btn.disabled = false;
+        closeInAppChangePinModal();
+
+        Swal.fire({
+          icon: 'success',
+          title: 'PIN Changed!',
+          text: 'Your PIN has been successfully updated.',
+          timer: 2000,
+          showConfirmButton: false
+        });
+      } catch (err) {
+        btn.innerHTML = '<i class="fas fa-check mr-1.5"></i> Update PIN';
+        btn.disabled = false;
+        Swal.fire({ icon: 'error', title: 'Error', text: err.message || 'Could not update PIN.' });
       }
     }
 
@@ -1319,6 +1836,8 @@
           currentUser = null;
           selectedProfile = null;
           document.getElementById('appView').classList.add('hidden');
+          const changePinView = document.getElementById('changePinView');
+          if (changePinView) changePinView.classList.add('hidden');
           document.getElementById('loginView').classList.remove('hidden');
           cancelPin();
           renderProfileButtons(cachedUsers);
@@ -1328,6 +1847,8 @@
 
     function showApp() {
       document.getElementById('loginView').classList.add('hidden');
+      const changePinView = document.getElementById('changePinView');
+      if (changePinView) changePinView.classList.add('hidden');
       document.getElementById('appView').classList.remove('hidden');
 
       document.getElementById('topUserName').innerText = currentUser.name;
