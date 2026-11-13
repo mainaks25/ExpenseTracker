@@ -1149,6 +1149,12 @@
     }
 
     async function fetchInitialBundle(isLoginScreen = false) {
+      // When Firestore is connected, Firestore is our live real-time source of truth!
+      // Never call the legacy Google Apps Script which would overwrite Firestore with old spreadsheet data.
+      if (window.FS && window.FS.db) {
+        return;
+      }
+
       updateSyncBadge(true); // Spin sync badge
 
       try {
@@ -1158,7 +1164,6 @@
           cachedUsers = res.users || cachedUsers;
           firstRecordDate = res.first_date || firstRecordDate;
 
-          // Save to local cache for instant 0.05s load next time!
           localStorage.setItem('et_cached_expenses', JSON.stringify(allExpenses));
           localStorage.setItem('et_cached_users', JSON.stringify(cachedUsers));
           localStorage.setItem('et_cached_first_date', firstRecordDate);
@@ -1168,8 +1173,10 @@
           if (isLoginScreen) {
             renderProfileButtons(cachedUsers);
           } else if (currentUser) {
+            renderInstantDashboard();
             renderInstantExpenses();
             renderInstantMonthlySummary();
+            renderInstantAnalysis();
           }
 
           updateSyncBadge(false); // Green checkmark
@@ -1336,9 +1343,7 @@
       renderInstantDashboard();
       renderInstantExpenses();
       renderInstantMonthlySummary();
-
-      // Trigger silent background update check
-      fetchInitialBundle(false);
+      renderInstantAnalysis();
 
       // Default landing page after login is Dashboard!
       switchTab('dashboard');
@@ -1394,6 +1399,7 @@
       const sort = $('#sortBy').val();
 
       let filtered = allExpenses.filter(e => {
+        if (e.is_deleted && Number(e.is_deleted) === 1) return false;
         if (cat && e.type !== cat) return false;
         if (forWhom && e.for_whom !== forWhom) return false;
         if (user && Number(e.created_by) !== Number(user)) return false;
@@ -1409,11 +1415,15 @@
       filtered.sort((a, b) => {
         let cmp = 0;
         if (sortField === 'expense_date') {
-          cmp = new Date(a.expense_date) - new Date(b.expense_date);
+          if (a.expense_date !== b.expense_date) {
+            cmp = a.expense_date.localeCompare(b.expense_date);
+          } else {
+            cmp = (Number(a.id) || 0) - (Number(b.id) || 0);
+          }
         } else if (sortField === 'amount') {
-          cmp = a.amount - b.amount;
+          cmp = (Number(a.amount) || 0) - (Number(b.amount) || 0);
         } else if (sortField === 'title') {
-          cmp = a.title.localeCompare(b.title);
+          cmp = (a.title || '').localeCompare(b.title || '');
         }
         return sortOrder === 'DESC' ? -cmp : cmp;
       });
@@ -2441,7 +2451,7 @@
     }
 
     function editExpense(id) {
-      const exp = allExpenses.find(e => e.id === id);
+      const exp = allExpenses.find(e => Number(e.id) === Number(id));
       if (exp) {
         openExpenseModal(exp);
       }
@@ -2540,7 +2550,11 @@
 
       if (isEdit) {
         const idx = allExpenses.findIndex(item => Number(item.id) === targetId);
-        if (idx !== -1) allExpenses[idx] = optimisticRecord;
+        if (idx !== -1) {
+          allExpenses[idx] = optimisticRecord;
+        } else {
+          allExpenses.unshift(optimisticRecord);
+        }
       } else {
         allExpenses.unshift(optimisticRecord);
       }
