@@ -3,6 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- HTTP Cache-Busting Headers: Prevent Disk & Browser Caching -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>Expense Tracker Portal</title>
   
   <!-- Tailwind CSS -->
@@ -181,10 +185,15 @@
           </div>
 
           <div class="flex items-center space-x-3">
-            <!-- Subtle Sync Status Badge -->
-            <span id="syncStatusBadge" class="hidden sm:inline-flex items-center text-xs text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-full">
+            <!-- Subtle Sync Status Badge (Clickable for 1-click hard refresh) -->
+            <button onclick="forceHardRefresh()" type="button" id="syncStatusBadge" title="Click to hard refresh latest data" class="hidden sm:inline-flex items-center text-xs text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-full cursor-pointer hover:bg-indigo-100 transition">
               <i class="fas fa-sync-alt fa-spin mr-1.5 text-xs text-indigo-500"></i>Syncing...
-            </span>
+            </button>
+
+            <!-- 1-Click Hard Refresh Button -->
+            <button onclick="forceHardRefresh()" type="button" class="hidden sm:inline-flex items-center justify-center p-2 text-gray-500 hover:text-indigo-600 rounded-full hover:bg-gray-100 transition" title="Force Hard Refresh App & Data">
+              <i class="fas fa-redo-alt text-sm"></i>
+            </button>
 
             <div class="hidden md:flex items-center ml-2">
               <span class="text-sm text-gray-600 mr-4">Welcome, <strong id="topUserName">User</strong></span>
@@ -216,9 +225,14 @@
                 <div class="text-base font-medium text-gray-800" id="mobileUserName">User</div>
                 <div class="text-sm font-medium text-gray-500" id="mobileUserRole">Role</div>
               </div>
-              <span id="mobileSyncBadge" class="text-xs text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
-                <i class="fas fa-sync-alt fa-spin text-xs"></i>
-              </span>
+              <div class="flex items-center gap-2">
+                <button onclick="forceHardRefresh()" type="button" title="Hard Refresh App" class="text-xs text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 p-1.5 rounded-full transition">
+                  <i class="fas fa-redo-alt text-xs"></i>
+                </button>
+                <span id="mobileSyncBadge" class="text-xs text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+                  <i class="fas fa-sync-alt fa-spin text-xs"></i>
+                </span>
+              </div>
             </div>
             <div class="mt-3 px-2">
               <button onclick="handleLogout()" class="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-red-600 hover:bg-red-50">Logout</button>
@@ -933,6 +947,47 @@
   <!-- ⚡ HIGH-SPEED FIREBASE + CLIENT-SIDE JAVASCRIPT ENGINE           -->
   <!-- ============================================================== -->
   <script>
+    // Build version identifier (auto-increments on deployment to bust stale caches)
+    const APP_BUILD_ID = "20261113_v3";
+
+    // 1. Automatically force a hard reload when resumed from mobile browser bfcache
+    window.addEventListener('pageshow', function(event) {
+      if (event.persisted) {
+        console.log("Restored from bfcache - forcing fresh reload");
+        window.location.reload();
+      }
+    });
+
+    // 2. Automated background check for newly deployed versions on GitHub Pages
+    (function checkRemoteVersion() {
+      const lastCheck = sessionStorage.getItem('et_last_ver_check');
+      const now = Date.now();
+      if (!lastCheck || (now - Number(lastCheck)) > 15000) {
+        sessionStorage.setItem('et_last_ver_check', String(now));
+        fetch(window.location.pathname + '?_bust=' + now, {
+          method: 'GET',
+          headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' },
+          cache: 'no-store'
+        }).then(r => r.text()).then(html => {
+          const match = html.match(/const APP_BUILD_ID = ["']([^"']+)["']/);
+          if (match && match[1] && match[1] !== APP_BUILD_ID) {
+            console.log("New deployment detected (" + match[1] + "). Auto-refreshing to latest version...");
+            localStorage.removeItem('et_cached_expenses');
+            window.location.replace(window.location.pathname + '?_v=' + match[1]);
+          }
+        }).catch(() => {});
+      }
+    })();
+
+    // 3. User-triggered 1-click hard refresh function
+    function forceHardRefresh() {
+      updateSyncBadge(true);
+      localStorage.removeItem('et_cached_expenses');
+      localStorage.removeItem('et_cached_first_date');
+      sessionStorage.clear();
+      window.location.replace(window.location.pathname + '?_t=' + Date.now());
+    }
+
     // Fallback Google Apps Script URL (in case Firebase is offline)
     const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxPA5Kv4ysmn6tS0a27jQ29BPSdtjUel68-sWWVNxd7IbUiXrFqokNFFOKQaDXiOTLy3A/exec';
 
@@ -1209,7 +1264,7 @@
         }
       } else {
         if (desktopBadge) {
-          desktopBadge.className = 'hidden sm:inline-flex items-center text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full';
+          desktopBadge.className = 'hidden sm:inline-flex items-center text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full cursor-pointer hover:bg-emerald-100 transition';
           desktopBadge.innerHTML = '<i class="fas fa-check-circle mr-1.5 text-xs text-emerald-500"></i>Synced';
         }
         if (mobileBadge) {
